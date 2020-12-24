@@ -1,2 +1,9 @@
-# erlkeychain
-The keychain, rewritten with Erlang...just for fun and learning
+erlkeychain
+=====
+
+An OTP application
+
+Build
+-----
+
+    $ rebar3 compile
