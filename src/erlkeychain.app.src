@@ -1,18 +1,16 @@
 {application, erlkeychain,
- [{description, "An OTP application"},
+ [{description, "An escript"},
   {vsn, "0.1.0"},
   {registered, []},
-  {mod, {erlkeychain_app, []}},
   {applications,
    [kernel,
-    stdlib,
-    cecho_srv
+    stdlib
    ]},
   {env,[]},
   {modules, [
-    erlkeychain_app, 
-    erlkeychain_srv, 
-    erlkeychain_sup]},
+      erlkeychain,
+      erlkc_account
+    ]},
 
   {licenses, ["Apache 2.0"]},
   {links, []}
