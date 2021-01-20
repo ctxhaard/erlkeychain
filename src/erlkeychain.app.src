@@ -5,10 +5,14 @@
   {mod, {erlkeychain_app, []}},
   {applications,
    [kernel,
-    stdlib
+    stdlib,
+    cecho_srv
    ]},
   {env,[]},
-  {modules, []},
+  {modules, [
+    erlkeychain_app, 
+    erlkeychain_srv, 
+    erlkeychain_sup]},
 
   {licenses, ["Apache 2.0"]},
   {links, []}
