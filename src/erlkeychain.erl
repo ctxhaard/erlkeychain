@@ -1,4 +1,5 @@
 -module(erlkeychain).
+-author('c.tomasin@gmail.com').
 
 %% API exports
 -export([main/1]).

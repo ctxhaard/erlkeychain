@@ -1,8 +1,7 @@
 -module(erlkc_account).
+-author('c.tomasin@gmail.com').
 
 -export([load/2, main/1]).
-
--define(OPENSSL, <<"openssl">>).
 
 load(_FilePath, Pwd) ->
     process_flag(trap_exit, true),
@@ -17,43 +16,36 @@ load(_FilePath, Pwd) ->
 
 decode(Port, Pwd) ->
     Port ! {self(), {command, Pwd ++ "\n" }},
-    _Accounts = loop(Port, []),
-    io:format("Accounts: ~p~n", [_Accounts]).
+    loop(Port, []).
 
 loop(Port, Accumulator) ->
     receive
-        % {Port, {data, "enter aes-256-cbc decryption password:"}} ->
-        %     io:format("Password prompt received!~n"),
-        %     loop(Port, Pwd, Accumulator);
-        % Blob -> io:format("Blob: ~p~n", [Blob]);
         {Port , {data, {eol, Line}}} ->
             % TODO: parse the line
             case Line of
                 "---" ->  
                     loop(Port, [{account, []}|Accumulator]); % new data structure
-                [$u|[$:|[$\s|Value]]] ->
-                    [{account, List}|Tail] = Accumulator,
-                    loop(Port, [{account, List ++ {username, Value}}|Tail]);
+                % title
                 [$t|[$:|[$\s|Value]]] ->
-                    [{account, List}|Tail] = Accumulator,
-                    loop(Port, [{account, List ++ {title, Value}}|Tail]);
+                    loop(Port, add_field(Accumulator, title, Value));
+                % url
                 [$u|[$r|[$l|[$:|[$\s|Value]]]]] ->
-                    [{account, List}|Tail] = Accumulator,
-                    loop(Port, [{account, List ++ {url, Value}}|Tail]);
+                    loop(Port, add_field(Accumulator, url, Value));
+                % username
+                [$u|[$:|[$\s|Value]]] ->
+                    loop(Port, add_field(Accumulator, username, Value));
+                % password
                 [$p|[$:|[$\s|Value]]] ->
-                    [{account, List}|Tail] = Accumulator,
-                    loop(Port, [{account, List ++ {password, Value}}|Tail]);
+                    loop(Port, add_field(Accumulator, password, Value));
+                % notes
                 [$n|[$:|[$\s|Value]]] ->
-                    [{account, List}|Tail] = Accumulator,
-                    loop(Port, [{account, List ++ {notes, Value}}|Tail]);
+                    loop(Port, add_field(Accumulator, notes, Value));
+                % other
                 [$o|[$:|[$\s|Value]]] ->
-                    [{account, List}|Tail] = Accumulator,
-                    loop(Port, [{account, List ++ {other, Value}}|Tail])
-
-
+                    loop(Port, add_field(Accumulator, other, Value))
             end;
         {Port, {exit_status, 0}} ->
-            io:format("exiting~n~n"),
+            %io:format("exiting~n~n"),
             Accumulator;
         {'EXIT', Port, _Reason} ->
             exit(1)
@@ -78,6 +70,10 @@ loop(Port, Accumulator) ->
 
     % ].
 
-    main(Args) ->
-        [FileName|Password] = Args,
-        load(FileName, Password).
+add_field(Accumulator, Field, Value) ->
+    [{account, List} | Tail] = Accumulator,
+    [{account, [{Field, Value} | List] } | Tail].
+
+main(Args) ->
+    [FileName|Password] = Args,
+    load(FileName, Password).
