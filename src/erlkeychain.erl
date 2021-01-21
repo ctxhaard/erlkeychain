@@ -22,9 +22,6 @@ main(_Args) ->
 
     cecho:waddstr(Win,"Insert your password: "),
     cecho:wrefresh(Win),
-    %cecho:waddstr(Win, "Your password is: "),
-    %cecho:waddstr(Win, Pwd),
-    %cecho:wrefresh(Win),
     Accounts = erlkc_account:load(?ARCHIVEPATH, get_password()),
     accounts_summary(Accounts),
 

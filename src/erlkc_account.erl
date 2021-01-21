@@ -3,6 +3,7 @@
 
 -export([load/2, main/1]).
 
+
 load(_FilePath, Pwd) ->
     process_flag(trap_exit, true),
     % openssl enc -d -aes-256-cbc -md sha256 -in <file>
@@ -15,37 +16,33 @@ load(_FilePath, Pwd) ->
     decode(Port, Pwd).
 
 decode(Port, Pwd) ->
-    Port ! {self(), {command, Pwd ++ "\n" }},
+    Port ! {self(), {command, [Pwd, "\n"] }},
     loop(Port, []).
 
 loop(Port, Accumulator) ->
     receive
         {Port , {data, {eol, Line}}} ->
-            % TODO: parse the line
-            case Line of
-                "---" ->  
-                    loop(Port, [{account, []}|Accumulator]); % new data structure
-                % title
-                [$t|[$:|[$\s|Value]]] ->
+            case iolist_to_binary(Line) of
+                <<"---">> ->
+                    loop(Port, [{account, #{}}|Accumulator]); % new data structure
+                <<"t: ", Value/binary>> ->
                     loop(Port, add_field(Accumulator, title, Value));
-                % url
-                [$u|[$r|[$l|[$:|[$\s|Value]]]]] ->
+                <<"url: ", Value/binary>> ->
                     loop(Port, add_field(Accumulator, url, Value));
                 % username
-                [$u|[$:|[$\s|Value]]] ->
+                <<"u: ", Value/binary>> ->
                     loop(Port, add_field(Accumulator, username, Value));
                 % password
-                [$p|[$:|[$\s|Value]]] ->
+                <<"p: ", Value/binary>> ->
                     loop(Port, add_field(Accumulator, password, Value));
                 % notes
-                [$n|[$:|[$\s|Value]]] ->
+                <<"n: ", Value/binary>> ->
                     loop(Port, add_field(Accumulator, notes, Value));
                 % other
-                [$o|[$:|[$\s|Value]]] ->
+                <<"o: ", Value/binary>> ->
                     loop(Port, add_field(Accumulator, other, Value))
             end;
         {Port, {exit_status, 0}} ->
-            %io:format("exiting~n~n"),
             lists:reverse(Accumulator);
         {'EXIT', Port, _Reason} ->
             exit(1)
@@ -71,8 +68,8 @@ loop(Port, Accumulator) ->
     % ].
 
 add_field(Accumulator, Field, Value) ->
-    [{account, List} | Tail] = Accumulator,
-    [{account, [{Field, Value} | List] } | Tail].
+    [{account, Map} | Tail] = Accumulator,
+    [{account, maps:put(Field, Value, Map) } | Tail].
 
 main(Args) ->
     [FileName|Password] = Args,
