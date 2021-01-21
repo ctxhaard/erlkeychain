@@ -47,4 +47,5 @@ get_password(Tail) ->
     end.
 
 accounts_summary(_Accounts) ->
+    % TODO: print accounts summary
     ok.

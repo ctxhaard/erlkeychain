@@ -46,7 +46,7 @@ loop(Port, Accumulator) ->
             end;
         {Port, {exit_status, 0}} ->
             %io:format("exiting~n~n"),
-            Accumulator;
+            lists:reverse(Accumulator);
         {'EXIT', Port, _Reason} ->
             exit(1)
     end.
@@ -76,4 +76,5 @@ add_field(Accumulator, Field, Value) ->
 
 main(Args) ->
     [FileName|Password] = Args,
-    load(FileName, Password).
+    Accounts = load(FileName, Password),
+    io:format("Accounts:~n~p~n~n", [Accounts]).
