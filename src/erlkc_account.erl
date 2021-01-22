@@ -77,7 +77,7 @@ main(Args) ->
     Accounts = load(FileName, Password),
     io:format("Accounts:~n~p~n~n", [Accounts]).
 
-matches_do_not_match_test_() ->
+matches_test_() ->
     Account =
         {account, 
             #{ title => "Google",
