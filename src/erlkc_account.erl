@@ -1,7 +1,7 @@
 -module(erlkc_account).
 -author('c.tomasin@gmail.com').
 
--export([load/2, main/1]).
+-export([load/2, matches/2, main/1]).
 
 
 load(_FilePath, Pwd) ->
@@ -11,36 +11,39 @@ load(_FilePath, Pwd) ->
     % che la password non sia visibile nella lista dei processi
     Port = open_port(
         {spawn, <<"openssl enc -d -aes-256-cbc -md sha256 -in archive.protected">>},
-        [ use_stdio, exit_status, {line, 255} ]
+        [ use_stdio, stderr_to_stdout, exit_status, {line, 255} ]
     ),
     decode(Port, Pwd).
 
 decode(Port, Pwd) ->
     Port ! {self(), {command, [Pwd, "\n"] }},
-    loop(Port, []).
+    receive_loop(Port, []).
 
-loop(Port, Accumulator) ->
+receive_loop(Port, Accumulator) ->
     receive
         {Port , {data, {eol, Line}}} ->
             case iolist_to_binary(Line) of
                 <<"---">> ->
-                    loop(Port, [{account, #{}}|Accumulator]); % new data structure
+                    receive_loop(Port, [{account, #{}}|Accumulator]); % new data structure
                 <<"t: ", Value/binary>> ->
-                    loop(Port, add_field(Accumulator, title, Value));
+                    receive_loop(Port, add_field(Accumulator, title, Value));
                 <<"url: ", Value/binary>> ->
-                    loop(Port, add_field(Accumulator, url, Value));
+                    receive_loop(Port, add_field(Accumulator, url, Value));
                 % username
                 <<"u: ", Value/binary>> ->
-                    loop(Port, add_field(Accumulator, username, Value));
+                    receive_loop(Port, add_field(Accumulator, username, Value));
                 % password
                 <<"p: ", Value/binary>> ->
-                    loop(Port, add_field(Accumulator, password, Value));
+                    receive_loop(Port, add_field(Accumulator, password, Value));
                 % notes
                 <<"n: ", Value/binary>> ->
-                    loop(Port, add_field(Accumulator, notes, Value));
+                    receive_loop(Port, add_field(Accumulator, notes, Value));
                 % other
                 <<"o: ", Value/binary>> ->
-                    loop(Port, add_field(Accumulator, other, Value))
+                    receive_loop(Port, add_field(Accumulator, other, Value));
+                % discard unmanaged lines
+                _ ->
+                    receive_loop(Port, Accumulator)
             end;
         {Port, {exit_status, 0}} ->
             lists:reverse(Accumulator);
@@ -48,29 +51,25 @@ loop(Port, Accumulator) ->
             exit(1)
     end.
 
-    % [ 
-    %     {account, [
-    %         {title, "This is the title"}, 
-    %         {url, "http://blah.org"}, 
-    %         {username, "mario.rossi"}, 
-    %         {password, "1234567"}, 
-    %         {note, "Test account"}, 
-    %         {others, "Dunno what this field means"}]},
-
-    %     {account, [
-    %         {title, "Yet another title"}, 
-    %         {url, "http://youp.org"}, 
-    %         {username, "andrea.bianchi"}, 
-    %         {password, "abcdef"}, 
-    %         {note, "Test account #2"}, 
-    %         {others, "Dunno what this field means #2"}]} 
-
-    % ].
-
 add_field(Accumulator, Field, Value) ->
     [{account, Map} | Tail] = Accumulator,
     [{account, maps:put(Field, Value, Map) } | Tail].
 
+matches({account, Map}, MP) ->
+    First = maps:iterator(Map),
+    Loop = fun(F,I) ->
+        case maps:next(I) of
+            none -> false;
+            {_K, V, Next} -> 
+                case re:run(V, MP) of
+                    {match, _} -> true;
+                    _ -> F(F, Next)
+                end
+        end
+    end,
+    Loop(Loop,First).
+
+% called by ERTS when run as a script
 main(Args) ->
     [FileName|Password] = Args,
     Accounts = load(FileName, Password),
