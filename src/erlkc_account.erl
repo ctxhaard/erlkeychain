@@ -1,6 +1,8 @@
 -module(erlkc_account).
 -author('c.tomasin@gmail.com').
 
+-include_lib("eunit/include/eunit.hrl").
+
 -export([load/2, matches/2, main/1]).
 
 
@@ -74,3 +76,27 @@ main(Args) ->
     [FileName|Password] = Args,
     Accounts = load(FileName, Password),
     io:format("Accounts:~n~p~n~n", [Accounts]).
+
+matches_do_not_match_test_() ->
+    Account =
+        {account, 
+            #{ title => "Google",
+            url => "http://www.google.com",
+            username => "c.tomasin@gmail,com",
+            password => "uno due tre"} 
+        },
+    [
+        ?_assert(begin
+            {ok, MP} = re:compile("calippo"),
+            matches(Account, MP) =:= false end
+        ),
+        ?_assert(begin
+            {ok, MP} = re:compile("google"),
+            matches(Account, MP) =:= true end
+        ),
+        ?_assert(begin
+            {ok, MP} = re:compile("DUE",[caseless]),
+            matches(Account, MP) =:= true end
+        )
+
+    ].
