@@ -100,3 +100,27 @@ matches_test_() ->
         )
 
     ].
+
+matches_list_accounts_comprehension_test_() ->
+	Accounts = [
+		   
+		    {account,
+		     #{title => "Amazon",
+		       url => "http://www.amazon.com",
+		       username => "carlo.romasin",
+		      password => "one two three"}},
+	            {account,
+		     #{ title => "Google",
+			url => "http://www.google.com",
+			username => "c.tomasin@gmail,com",
+			password => "uno due tre"}
+		    }
+		   ],
+	{ok, MP} = re:compile("google", [caseless]),
+	[
+		?_assert(begin
+			FA = [ X || X <- Accounts, ?MODULE:matches(X, MP) ],
+			length(FA) =:= 1
+			end)
+	].
+
