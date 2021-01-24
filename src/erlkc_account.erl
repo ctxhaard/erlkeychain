@@ -116,11 +116,16 @@ matches_list_accounts_comprehension_test_() ->
 			password => "uno due tre"}
 		    }
 		   ],
-	{ok, MP} = re:compile("google", [caseless]),
 	[
 		?_assert(begin
+        	{ok, MP} = re:compile("google", [caseless]),
 			FA = [ X || X <- Accounts, ?MODULE:matches(X, MP) ],
 			length(FA) =:= 1
+			end),
+		?_assert(begin
+    	{ok, MP} = re:compile("nomatch", [caseless]),
+			FA = [ X || X <- Accounts, ?MODULE:matches(X, MP) ],
+			length(FA) =:= 0
 			end)
 	].
 
