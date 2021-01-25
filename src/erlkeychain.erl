@@ -56,6 +56,9 @@ getstr(Win,Tail) ->
     case cecho:getch() of
         $\n -> 
             lists:reverse(Tail);
+        $\b ->
+            [_|NewTail] = Tail,
+            getstr(lists:droplast(NewTail));
         Char ->
             if Win =/= password -> 
                 cecho:waddstr(Win, [Char]),
@@ -82,10 +85,9 @@ accounts_summary(Win, N, Accounts) ->
             accounts_summary(Win, N+1, Tail)
     end.
 
-account_detail(A, Win) ->
+account_detail({account, M}, Win) ->
     {MaxY, MaxX } = cecho:getmaxyx(Win),
     WinE = cecho:newwin(MaxY - 8, MaxX - 8, 4, 4),
-    {account, M} = A,
     cecho:mvwaddstr(WinE, 0, 2, io_lib:format("Id: ~B", [maps:get(id, M)])),
     cecho:mvwaddstr(WinE, 1, 2, io_lib:format("Title: ~s", [maps:get(title, M, "")])),
     cecho:mvwaddstr(WinE, 2, 2, io_lib:format("URL: ~s", [maps:get(url, M, "")])),
@@ -96,7 +98,6 @@ account_detail(A, Win) ->
     cecho:box(WinE, 0, 0),
     cecho:wrefresh(WinE).
 
-
 loop(all, Accounts, Win, Prompt, Pwd) ->
     accounts_summary(Win, 0, Accounts),
     Text = Prompt( io_lib:format("Select an account by keyword or by index (1-~B 0:add new [q]uit)", [length(Accounts)]) ),
@@ -104,10 +105,11 @@ loop(all, Accounts, Win, Prompt, Pwd) ->
 loop(quit, _, _, _, _) ->
     ok;
 loop(addnew, Accounts, Win, Prompt, Pwd) ->
-    ok;
+    A = erlkc_account:new(Accounts),
+    account_op(edit, A, [A|Accounts], Win, Prompt, Pwd);
 loop(Id, Accounts, Win, Prompt, Pwd) when is_integer(Id) ->
-    [A|_] = [{account, Map} || {account, Map} <- Accounts, maps:get(id, Map) =:= Id],
-    account_detail(A,Win),
+    [A|_] = [{account, M} || {account, M} <- Accounts, maps:get(id, M) =:= Id],
+    account_detail(A, Win),
     Text = Prompt( "[e]dit, [d]elete] or [C]ancel?" ),
     account_op(get_account_command(Text), A, Accounts, Win, Prompt, Pwd);
 loop(Regex, Accounts, Win, Prompt, Pwd) ->
@@ -135,14 +137,41 @@ get_account_command("e") -> edit;
 get_account_command("d") -> delete;
 get_account_command(_) -> cancel.
 
-account_op(edit, A, Accounts, Win, Prompt, Pwd) ->
-    ok;
-account_op(delete, A, Accounts, Win, Prompt, Pwd) ->
-    {account, M} = A,
+account_op(edit, {account, M}, Accounts, Win, Prompt, Pwd) ->
+
+    Acq = fun(Label, Field) ->
+            Prev = maps:get(Field, M, ""),
+            case Prompt(io_lib:format("~s [~s]",[Label, Prev])) of
+                "" -> Prev;
+                New -> New
+            end
+        end,
+    Title = Acq("Title", title),
+    Url = Acq("URL", url),
+    Username = Acq("Username", username),
+    Password = Acq("Password", password),
+    Notes = Acq("Notes", notes),
+    Other = Acq("Other", other),
+    case Prompt("[s]ave or [C]ancel')?") of
+        "s" -> New = {account, M#{
+                title => Title,
+                url => Url,
+                username => Username,
+                password => Password,
+                notes => Notes,
+                other => Other
+            }},
+            NewAccounts = [New|Accounts -- [{account, M}]],
+            erlkc_account:save(?ARCHIVEPATH, Pwd, NewAccounts),
+            loop(all, NewAccounts, Win, Prompt, Pwd);
+        Other ->
+            loop(all, Accounts, Win, Prompt, Pwd)
+    end;
+account_op(delete, {account, M}, Accounts, Win, Prompt, Pwd) ->
     Text = Prompt( io_lib:format("Confirm to delete ~s ([y] or [N])?", [maps:get(title, M, "<no title>")])),
     case Text of
         "y" -> 
-            Accounts1 = Accounts -- [A],
+            Accounts1 = Accounts -- [{account, M}],
             erlkc_account:save(?ARCHIVEPATH, Pwd, Accounts1),
             loop(all, Accounts1, Win, Prompt, Pwd);
         _ -> 

@@ -3,7 +3,7 @@
 
 -include_lib("eunit/include/eunit.hrl").
 
--export([load/2, save/3, matches/2, main/1]).
+-export([load/2, save/3, new/1, matches/2, main/1]).
 
 
 load(FilePath, Pwd) ->
@@ -19,11 +19,22 @@ load(FilePath, Pwd) ->
     decode(Port, Pwd).
 
 save(FilePath, Pwd, Accounts) ->
-    ok. % TODO: implement
+    FilePathBin = list_to_binary(FilePath),
+    Port = open_port(
+        {spawn, <<"openssl enc -aes-256-cbc -md sha256 -salt -out ", FilePathBin/binary>>},
+        [ use_stdio, stderr_to_stdout, exit_status, {line, 255} ]
+    ),
+    encode(Port, Pwd, Accounts).
 
 decode(Port, Pwd) ->
     Port ! {self(), {command, [Pwd, "\n"] }},
     receive_loop(Port, []).
+
+encode(Port, Pwd, Accounts) ->
+    Port ! {self(), {command, [Pwd, "\n"] }},
+    Port ! {self(), {command, [Pwd, "\n"] }},
+    send_loop(Port, lists:reverse(Accounts)).
+
 
 receive_loop(Port, Accumulator) ->
     receive
@@ -57,9 +68,35 @@ receive_loop(Port, Accumulator) ->
             exit(1)
     end.
 
+send_loop(_,[]) -> ok;
+send_loop(Port, Accounts) ->
+    [H|Tail] = Accounts,
+    {account, M} = H,
+    Port ! { self(), {command, "---\n"}},
+    Send = fun(Key, Field) ->
+        Port ! { self(), {command, io_lib:format("~s: ~s~n", [ Field, maps:get(Key, M, "") ])}}
+        end,
+    Send(title, "t"),
+    Send(url, "url"),
+    Send(username, "u"),
+    Send(password, "p"),
+    Send(notes, "n"),
+    Send(other, "o"),
+    send_loop(Port, Tail).
+
 add_field(Accumulator, Field, Value) ->
     [{account, Map} | Tail] = Accumulator,
     [{account, maps:put(Field, Value, Map) } | Tail].
+
+new(Accounts) ->
+    MaxFun = fun({account, M}, Max) ->
+            X = maps:get(id, M, 0), 
+            if X > Max -> X;
+               true -> Max
+            end
+        end,
+    MaxVal = lists:foldl(MaxFun, 0, Accounts),
+    {account, #{ id => (MaxVal + 1), title => <<"">> }}.
 
 matches({account, Map}, MP) ->
     First = maps:iterator(Map),
@@ -83,6 +120,7 @@ main(Args) ->
     Accounts = load(FileName, Password),
     io:format("Accounts:~n~p~n~n", [Accounts]).
 
+% tests
 matches_test_() ->
     Account =
         {account, 
