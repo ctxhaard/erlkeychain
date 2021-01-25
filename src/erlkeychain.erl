@@ -31,8 +31,6 @@ main(_Args) ->
 
     loop(all, Accounts, Win, Prompt, Pwd),
 
-    % TEMP: to avoid program to shut down immediately
-    cecho:getch(),
     erlang:halt(0).
 
 %%====================================================================
@@ -56,14 +54,24 @@ getstr(Win,Tail) ->
     case cecho:getch() of
         $\n -> 
             lists:reverse(Tail);
-        $\b ->
+        Char when Tail =:= [] 
+            andalso (Char =:= $\b orelse Char =:= $\d) ->
+            getstr(Win,Tail);
+        Char when Char =:= $\b orelse Char =:= $\d ->
             [_|NewTail] = Tail,
-            getstr(lists:droplast(NewTail));
+            if Win =/= password ->
+                {Y, X} = cecho:getyx(Win),
+                cecho:mvwaddch(Win, Y, X -1, $\s),
+                cecho:wrefresh(Win),
+                cecho:wmove(Win, Y, X - 1);
+               true -> ok
+            end,
+            getstr(Win,NewTail);
         Char ->
             if Win =/= password -> 
                 cecho:waddstr(Win, [Char]),
                 cecho:wrefresh(Win);
-                true -> ok
+               true -> ok
             end,
             getstr(Win, [Char|Tail])
     end.
@@ -164,11 +172,11 @@ account_op(edit, {account, M}, Accounts, Win, Prompt, Pwd) ->
             NewAccounts = [New|Accounts -- [{account, M}]],
             erlkc_account:save(?ARCHIVEPATH, Pwd, NewAccounts),
             loop(all, NewAccounts, Win, Prompt, Pwd);
-        Other ->
+        _ ->
             loop(all, Accounts, Win, Prompt, Pwd)
     end;
 account_op(delete, {account, M}, Accounts, Win, Prompt, Pwd) ->
-    Text = Prompt( io_lib:format("Confirm to delete ~s ([y] or [N])?", [maps:get(title, M, "<no title>")])),
+    Text = Prompt( io_lib:format("Confirm to delete \"~s\" ([y] or [N])?", [maps:get(title, M, "<no title>")])),
     case Text of
         "y" -> 
             Accounts1 = Accounts -- [{account, M}],
