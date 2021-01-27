@@ -15,4 +15,5 @@ $ ./erlkeychain.escript
 ## To-do
 
 - rewrite with gen_server;
-- debugger;
+- allow passing FilePath as script argument;
+- modify backup file to manage file path instead of file name;
