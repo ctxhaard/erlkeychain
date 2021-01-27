@@ -18,4 +18,4 @@ Run
 
 - debugger;
 - document data types;
-
+- rewrite with gen_server;

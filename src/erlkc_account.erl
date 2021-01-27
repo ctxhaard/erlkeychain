@@ -5,7 +5,9 @@
 
 -export([load/2, save/3, new/1, matches/2, main/1]).
 
+%% @type account() :: {account, any()}.
 
+%% @spec load(FilePath :: iolist(), FilePath :: iolist()) -> [account()].
 load(FilePath, Pwd) ->
     process_flag(trap_exit, true),
     % openssl enc -d -aes-256-cbc -md sha256 -in <file>
@@ -18,10 +20,12 @@ load(FilePath, Pwd) ->
     ),
     decode(Port, Pwd).
 
-save(FilePath, Pwd, Accounts) ->
-    FilePathBin = list_to_binary(FilePath),
+%% @spec save(FileName :: chars(), Pwd :: iolist(), Accounts :: [account()]) -> ok.
+save(FileName, Pwd, Accounts) ->
+    file:copy(FileName,backup_name(FileName, calendar:universal_time())),
+    FileNameBin = list_to_binary(FileName),
     Port = open_port(
-        {spawn, <<"openssl enc -aes-256-cbc -md sha256 -salt -out ", FilePathBin/binary>>},
+        {spawn, <<"openssl enc -aes-256-cbc -md sha256 -salt -out ", FileNameBin/binary>>},
         [ use_stdio, stderr_to_stdout, exit_status, {line, 255} ]
     ),
     encode(Port, Pwd, Accounts).
@@ -114,6 +118,11 @@ matches({account, Map}, MP) ->
     end,
     Loop(Loop,First).
 
+%% @spec (FileName :: chars(), DateTime :: datetime() -> string()
+%% @todo: convert from FileName to FilePath
+backup_name(FileName, {{Year,Month,Day},{Hours,Minutes, Seconds}}) ->    
+    lists:flatten(io_lib:format("~4..0B~2..0B~2..0B~2..0B~2..0B~2..0B_~s.bkp", [Year, Month, Day, Hours, Minutes, Seconds, FileName])).
+
 % called by ERTS when run as a script
 main(Args) ->
     [FileName|Password] = Args,
@@ -173,3 +182,9 @@ matches_list_accounts_comprehension_test_() ->
 			end)
 	].
 
+backup_name_test_() ->
+    FileName = "file.of.accounts",
+    BackupName = backup_name(FileName, {{2020,7, 9}, {9,8,7}}),
+    [
+        ?_assertEqual("20200709090807_file.of.accounts.bkp", BackupName)    
+    ].
