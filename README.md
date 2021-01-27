@@ -1,21 +1,18 @@
-erlkeychain
-=====
+# erlkeychain
 
-An escript
+See [pykeychain project README.m](https://github.com/ctxhaard/erlkeychain) to more details of archive file format and encryption.
 
-Build
------
+## To build: 
+```sh
+$ rebar3 compile
+```
 
-    $ rebar3 compile
+## To run:
+```sh
+$ ./erlkeychain.escript
+```
 
-Run
----
+## To-do
 
-    $ ./erlkeychain.escript
-
-
-## TODO
-
-- debugger;
-- document data types;
 - rewrite with gen_server;
+- debugger;
