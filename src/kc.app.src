@@ -1,0 +1,21 @@
+{application, kc,
+ [{description, "An OTP application"},
+  {vsn, "0.1.0"},
+  {registered, []},
+  {mod, {kc_app, []}},
+  {applications,
+   [kernel,
+    stdlib,
+    cecho
+   ]},
+  {env,[]},
+  {modules, [
+      kc_app,
+      kc_sup,
+      kc_server,
+      kc_client
+      ]},
+
+  {licenses, ["Apache 2.0"]},
+  {links, []}
+ ]}.
