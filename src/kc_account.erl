@@ -1,7 +1,7 @@
 -module(kc_account).
 -author('c.tomasin@gmail.com').
 
--include_lib("eunit/include/eunit.hrl").
+-include("kc.hrl").
 
 -export([load/2, save/3, new/1, matches/2, main/1]).
 
@@ -30,7 +30,7 @@ load(FilePath, Pwd) ->
 %%
 %% The current file is moved unchanged to a backup copy, prior to create the new one
 save(FileName, Pwd, Accounts) ->
-    file:copy(FileName,backup_name(FileName, calendar:universal_time())),
+    file:copy(FileName, backup_name(FileName, calendar:universal_time())),
     FileNameBin = list_to_binary(FileName),
     Port = open_port(
         {spawn, <<"openssl enc -aes-256-cbc -md sha256 -salt -out ", FileNameBin/binary>>},

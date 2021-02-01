@@ -5,6 +5,8 @@
 
 -module(kc_app).
 
+-include("kc.hrl").
+
 -behaviour(application).
 
 -export([start/2, stop/1]).

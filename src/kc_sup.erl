@@ -5,6 +5,8 @@
 
 -module(kc_sup).
 
+-include("kc.hrl").
+
 -behaviour(supervisor).
 
 -export([start_link/0]).

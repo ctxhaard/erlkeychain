@@ -1,10 +1,14 @@
 -module(kc_server).
+
+-include("kc.hrl").
+
 -behavior(gen_server).
 
--export([start_link/0, load/2, first/0, next/0]).
+-export([start_link/0, load/2, first/0, next/0, get/1, delete/1]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2]).
 
--record(state, {accounts = [], current = 0}).
+-record(state, {accounts = [], current = 0, file_path, password}).
+
 -define(SERVER,?MODULE).
 
 %% gen_server behavior
@@ -27,8 +31,14 @@ first() ->
 next() ->
     gen_server:call(?SERVER, next).
 
+%% @doc Get the the element given its id, if any
+%% @spec (AccountId) -> kc_account:account() | notfound
+get(AccountId) ->
+    gen_server:call(?SERVER, {get, AccountId}).
+
+delete(AccountId) ->
+    gen_server:call(?SERVER, {delete, AccountId}).
 % put()
-% get()
 % delete()
 
 init(_Args) ->
@@ -36,7 +46,7 @@ init(_Args) ->
 
 handle_call({load, FilePath, Pwd}, _From, _State) ->
     Accounts = kc_account:load(FilePath, Pwd),
-    {reply, ok, #state{ accounts=Accounts}};
+    {reply, ok, #state{ accounts=Accounts, file_path = FilePath, password = Pwd }};
 
 handle_call(first, _From, State = #state{ accounts=Accounts}) when Accounts =/= [] ->
     {reply, hd(Accounts), State#state{ current = 1 }};
@@ -49,9 +59,24 @@ handle_call(next, _From, State = #state{ accounts=Accounts, current=Current}) ->
         Next = Current + 1,
         {reply, lists:nth(Next, Accounts), State#state{ current = Next }}
     catch
-        _ -> {reply, notfound, State}
-    end.
+        error:_ -> {reply, notfound, State}
+    end;
 
+handle_call({get, AccountId}, _From, State=#state{ accounts=Accounts}) ->
+    case [Account || Account={account, X} <- Accounts, maps:find(id, X) =:= {ok, AccountId}] of
+        [] -> {reply, notfound, State};
+        [H|_] -> {reply, H, State}
+    end;
+
+handle_call({delete, AccountId}, _From, State=#state{ accounts=Accounts}) ->
+    case [Account || Account={account, X} <- Accounts, maps:find(id, X) =:= {ok, AccountId}] of
+        [] -> {reply, notfound, State};
+        [H|_] ->
+            StateNew = State#state{ accounts= Accounts -- [H], current=0 },
+            ?LOG_DEBUG(#{ what => StateNew, log => trace, level => debug }),
+            kc_account:save(StateNew#state.file_path, StateNew#state.password, StateNew#state.accounts),
+            {reply, ok, StateNew }
+    end.
 
 handle_cast(_Request, State) ->
     {noreply, State}.
