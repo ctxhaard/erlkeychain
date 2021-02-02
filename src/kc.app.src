@@ -1,13 +1,11 @@
 {application, kc,
- [{description, "An OTP application"},
+ [{description, "Keychain manager using openssl"},
   {vsn, "0.1.0"},
   {registered, []},
   {mod, {kc_app, []}},
   {applications,
    [kernel,
     stdlib
-%% todo: verificare se sia necessario
-%%     cecho
    ]},
   {env,[]},
   {modules, [
