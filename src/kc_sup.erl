@@ -37,12 +37,12 @@ init([]) ->
             start => {kc_server, start_link,[]},
             restart => transient,
             type => worker
-            }%,
-        % #{
-        %     id => kc_client,
-        %     start => {kc_client, start_link, []},
-        %     restart => transient,
-        %     type => worker}
+            },
+        #{
+             id => kc_client,
+             start => {kc_client, start_link, []},
+             restart => transient,
+             type => worker}
         ],
     {ok, {SupFlags, ChildSpecs}}.
 
