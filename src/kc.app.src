@@ -5,8 +5,9 @@
   {mod, {kc_app, []}},
   {applications,
    [kernel,
-    stdlib,
-    cecho
+    stdlib
+%% todo: verificare se sia necessario
+%%     cecho
    ]},
   {env,[]},
   {modules, [

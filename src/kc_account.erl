@@ -3,7 +3,7 @@
 
 -include("kc.hrl").
 
--export([load/2, save/3, new/1, matches/2, main/1]).
+-export([load/2, save/3, new/1, get_id/1, matches/2, main/1]).
 
 %% ----------------------------------------------------------------------------
 %% The public interface
@@ -36,6 +36,7 @@ save(FileName, Pwd, Accounts) ->
         {spawn, <<"openssl enc -aes-256-cbc -md sha256 -salt -out ", FileNameBin/binary>>},
         [ use_stdio, stderr_to_stdout, exit_status, {line, 255} ]
     ),
+    ?LOG_DEBUG(#{ what => Port, log => trace, level => debug }),
     encode(Port, Pwd, Accounts).
 
 %% @spec new(Accounts :: [account()]) -> account()
@@ -49,6 +50,12 @@ new(Accounts) ->
         end,
     MaxVal = lists:foldl(MaxFun, 0, Accounts),
     {account, #{ id => (MaxVal + 1), title => <<"">> }}.
+
+%% @spec get_id(Account) -> integer()
+%% @doc Gets the account identifier.
+get_id({account, Map}) ->
+    {ok, Id} = maps:find(id, Map),
+    Id.
 
 %% @spec matches( Account::account(), MP:: re:mp() ) -> bool()
 %% @doc Check if any of the account fields matches the given regular expression
@@ -113,9 +120,10 @@ read(Port, Accumulator) ->
             exit(1)
     end.
 
-write(_,[]) -> ok;
+write(Port,[]) -> port_close(Port), ok;
 write(Port, Accounts) ->
     [H|Tail] = Accounts,
+    ?LOG_DEBUG(#{ what => H, log => trace, level => debug}),
     {account, M} = H,
     Port ! { self(), {command, "---\n"}},
     Send = fun(Key, Field) ->

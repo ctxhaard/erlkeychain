@@ -4,7 +4,7 @@
 
 -behavior(gen_server).
 
--export([start_link/0, load/2, first/0, next/0, get/1, delete/1]).
+-export([start_link/0, load/2, first/0, next/0, get/1, put/1, delete/1]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2]).
 
 -record(state, {accounts = [], current = 0, file_path, password}).
@@ -17,7 +17,7 @@ start_link() ->
 
 %% @doc Command the server to decrypt and load FilePath
 %% using Password
-%% @spec (FilePath::iolist(), Pwd::iolist() -> ok
+%% @spec (FilePath::iolist(), Pwd::iolist()) -> ok
 load(FilePath, Pwd) ->
     gen_server:call(?SERVER, {load, FilePath, Pwd}).
 
@@ -36,10 +36,15 @@ next() ->
 get(AccountId) ->
     gen_server:call(?SERVER, {get, AccountId}).
 
+%% @doc Add a new account or replace an existing one
+%% @spec (kc_account:account()) -> ok
+put(Account={account, _}) ->
+    gen_server:call(?SERVER, {put, Account}).
+
+%% @doc Delete an account identified by id
+%% @spec (integer()) -> ok | notfound
 delete(AccountId) ->
     gen_server:call(?SERVER, {delete, AccountId}).
-% put()
-% delete()
 
 init(_Args) ->
     {ok, #state{}}.
@@ -63,13 +68,19 @@ handle_call(next, _From, State = #state{ accounts=Accounts, current=Current}) ->
     end;
 
 handle_call({get, AccountId}, _From, State=#state{ accounts=Accounts}) ->
-    case [Account || Account={account, X} <- Accounts, maps:find(id, X) =:= {ok, AccountId}] of
+    case [Account || Account <- Accounts, kc_account:get_id(Account) =:= AccountId] of
         [] -> {reply, notfound, State};
         [H|_] -> {reply, H, State}
     end;
 
+handle_call({put, Account}, _From, State=#state{accounts=Accounts}) ->
+    AccountId = kc_account:get_id(Account),
+    AccountsClean = [X || X <- Accounts, kc_account:get_id(X) =/= AccountId],
+    StateNew = State#state{ accounts= [Account| AccountsClean] },
+    {repy, ok, StateNew};
+
 handle_call({delete, AccountId}, _From, State=#state{ accounts=Accounts}) ->
-    case [Account || Account={account, X} <- Accounts, maps:find(id, X) =:= {ok, AccountId}] of
+    case [Account || Account <- Accounts, kc_account:get_id(Account) =:= AccountId] of
         [] -> {reply, notfound, State};
         [H|_] ->
             StateNew = State#state{ accounts= Accounts -- [H], current=0 },
