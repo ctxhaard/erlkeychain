@@ -43,11 +43,11 @@ save(FileName, Pwd, Accounts) ->
 %% @doc Creates a new, empty account. Accounts list is used to allocate a new, greater, id.
 new(Accounts) ->
     MaxFun = fun({account, M}, Max) ->
-            X = maps:get(id, M, 0), 
-            if X > Max -> X;
-               true -> Max
-            end
-        end,
+        X = maps:get(id, M, 0),
+        if X > Max -> X;
+            true -> Max
+        end
+             end,
     MaxVal = lists:foldl(MaxFun, 0, Accounts),
     {account, #{ id => (MaxVal + 1), title => <<"">> }}.
 
@@ -66,13 +66,13 @@ matches({account, Map}, MP) ->
             none -> false;
             {id, _, Next} ->
                 F(F, Next);
-            {_, V, Next}  -> 
+            {_, V, Next}  ->
                 case re:run(V, MP) of
                     {match, _} -> true;
                     _ -> F(F, Next)
                 end
         end
-    end,
+           end,
     Loop(Loop,First).
 
 %% ----------------------------------------------------------------------------
@@ -128,7 +128,7 @@ write(Port, Accounts) ->
     Port ! { self(), {command, "---\n"}},
     Send = fun(Key, Field) ->
         Port ! { self(), {command, io_lib:format("~s: ~s~n", [ Field, maps:get(Key, M, "") ])}}
-        end,
+           end,
     Send(title, "t"),
     Send(url, "url"),
     Send(username, "u"),
@@ -145,7 +145,7 @@ add_field(Accumulator, Field, Value) ->
 %% @spec (FileName :: chars(), DateTime :: datetime()) -> string()
 %% @doc Provides a backup file name, given a filename
 %% @todo: convert from FileName to FilePath
-backup_name(FileName, {{Year,Month,Day},{Hours,Minutes, Seconds}}) ->    
+backup_name(FileName, {{Year,Month,Day},{Hours,Minutes, Seconds}}) ->
     lists:flatten(io_lib:format("~4..0B~2..0B~2..0B~2..0B~2..0B~2..0B_~s.bkp", [Year, Month, Day, Hours, Minutes, Seconds, FileName])).
 
 %% ----------------------------------------------------------------------------
@@ -161,59 +161,59 @@ main(Args) ->
 %% ----------------------------------------------------------------------------
 matches_test_() ->
     Account =
-        {account, 
+        {account,
             #{ title => "Google",
-            url => "http://www.google.com",
-            username => "c.tomasin@gmail,com",
-            password => "uno due tre"} 
+                url => "http://www.google.com",
+                username => "c.tomasin@gmail,com",
+                password => "uno due tre"}
         },
     [
         ?_assert(begin
-            {ok, MP} = re:compile("calippo"),
-            matches(Account, MP) =:= false end
+                     {ok, MP} = re:compile("calippo"),
+                     matches(Account, MP) =:= false end
         ),
         ?_assert(begin
-            {ok, MP} = re:compile("google"),
-            matches(Account, MP) =:= true end
+                     {ok, MP} = re:compile("google"),
+                     matches(Account, MP) =:= true end
         ),
         ?_assert(begin
-            {ok, MP} = re:compile("DUE",[caseless]),
-            matches(Account, MP) =:= true end
+                     {ok, MP} = re:compile("DUE",[caseless]),
+                     matches(Account, MP) =:= true end
         )
 
     ].
 
 matches_list_accounts_comprehension_test_() ->
-	Accounts = [
-		   
-		    {account,
-		     #{title => "Amazon",
-		       url => "http://www.amazon.com",
-		       username => "carlo.romasin",
-		      password => "one two three"}},
-	            {account,
-		     #{ title => "Google",
-			url => "http://www.google.com",
-			username => "c.tomasin@gmail,com",
-			password => "uno due tre"}
-		    }
-		   ],
-	[
-		?_assert(begin
-        	{ok, MP} = re:compile("google", [caseless]),
-			FA = [ X || X <- Accounts, ?MODULE:matches(X, MP) ],
-			length(FA) =:= 1
-			end),
-		?_assert(begin
-    	{ok, MP} = re:compile("nomatch", [caseless]),
-			FA = [ X || X <- Accounts, ?MODULE:matches(X, MP) ],
-			length(FA) =:= 0
-			end)
-	].
+    Accounts = [
+
+        {account,
+            #{title => "Amazon",
+                url => "http://www.amazon.com",
+                username => "carlo.romasin",
+                password => "one two three"}},
+        {account,
+            #{ title => "Google",
+                url => "http://www.google.com",
+                username => "c.tomasin@gmail,com",
+                password => "uno due tre"}
+        }
+    ],
+    [
+        ?_assert(begin
+                     {ok, MP} = re:compile("google", [caseless]),
+                     FA = [ X || X <- Accounts, ?MODULE:matches(X, MP) ],
+                     length(FA) =:= 1
+                 end),
+        ?_assert(begin
+                     {ok, MP} = re:compile("nomatch", [caseless]),
+                     FA = [ X || X <- Accounts, ?MODULE:matches(X, MP) ],
+                     length(FA) =:= 0
+                 end)
+    ].
 
 backup_name_test_() ->
     FileName = "file.of.accounts",
     BackupName = backup_name(FileName, {{2020,7, 9}, {9,8,7}}),
     [
-        ?_assertEqual("20200709090807_file.of.accounts.bkp", BackupName)    
+        ?_assertEqual("20200709090807_file.of.accounts.bkp", BackupName)
     ].

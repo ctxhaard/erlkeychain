@@ -77,7 +77,7 @@ handle_call({put, Account}, _From, State=#state{accounts=Accounts}) ->
     AccountId = kc_account:get_id(Account),
     AccountsClean = [X || X <- Accounts, kc_account:get_id(X) =/= AccountId],
     StateNew = State#state{ accounts= [Account| AccountsClean] },
-    {repy, ok, StateNew};
+    {reply, ok, StateNew};
 
 handle_call({delete, AccountId}, _From, State=#state{ accounts=Accounts}) ->
     case [Account || Account <- Accounts, kc_account:get_id(Account) =:= AccountId] of
