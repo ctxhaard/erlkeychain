@@ -11,7 +11,7 @@
 -export([start_link/0]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
   code_change/3]).
--export([prompt_for_password/0, updated/1]).
+-export([prompt_for_password/0, updated/1, edit/1]).
 
 -define(SERVER, ?MODULE).
 
@@ -31,6 +31,9 @@ prompt_for_password() ->
 
 updated(What = accounts) ->
   gen_server:cast(?SERVER, {updated, What}).
+
+edit(Account) ->
+  gen_server:cast(?SERVER, {edit, Account}).
 
 %%%===================================================================
 %%% Spawning and gen_server implementation
@@ -69,6 +72,37 @@ handle_cast({updated, accounts}, State = #ncurses_state{window=W, prompt=Prompt 
   Text = Prompt( io_lib:format("Select an account by keyword or by index (1-~B 0:add new [q]uit)", [IdNext-1]) ),
   kc_client:command(get_command(Text)),
   {noreply, State};
+
+handle_cast({edit, {account, M}}, State = #ncurses_state{ prompt=Prompt }) ->
+  Acq = fun(Label, Field) ->
+    Prev = maps:get(Field, M, ""),
+    case Prompt(io_lib:format("~s [~s]",[Label, Prev])) of
+      "" -> Prev;
+      New -> New
+    end
+  end,
+  Title = Acq("Title", title),
+  Url = Acq("URL", url),
+  Username = Acq("Username", username),
+  Password = Acq("Password", password),
+  Notes = Acq("Notes", notes),
+  Other = Acq("Other", other),
+  case Prompt("[s]ave or [C]ancel')?") of
+    "s" ->
+      Account1 = {account, M#{
+        title => Title,
+        url => Url,
+        username => Username,
+        password => Password,
+        notes => Notes,
+        other => Other
+      }},
+      kc_client:command({save, Account1});
+    _ ->
+      kc_client:command({filter, ""})
+  end,
+  {noreply, State};
+
 handle_cast(Request, State = #ncurses_state{}) ->
   ?LOG_DEBUG(#{ who => ?MODULE, what => "Unmanaged cast", data => Request, log => trace, level => error }),
   {noreply, State}.
@@ -140,13 +174,13 @@ list_account(A, W, N) ->
   end.
 
 get_command([]) ->
-  all;
+  {filter, ""};
 get_command(Text) when Text == "q" orelse Text == "Q" ->
-  quit;
+  {quit, 0};
 get_command(Text) when Text == "0" ->
-  addnew;
+  {addnew, 0};
 get_command(Text) ->
   case string:to_integer(Text) of
-    {Num, []} -> Num;
-    _ -> Text
+    {Num, []} -> {select, Num};
+    _ -> {filter, Text}
   end.

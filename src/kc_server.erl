@@ -4,7 +4,7 @@
 
 -behavior(gen_server).
 
--export([start_link/0, load/2, first/0, next/0, get/1, put/1, delete/1]).
+-export([start_link/0, load/2, first/0, next/0, get/1, put/1, delete/1, new_account/0]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2]).
 
 -record(server_state, {accounts = [], current = 0, file_path, password}).
@@ -49,6 +49,11 @@ put(Account={account, _}) ->
 delete(AccountId) ->
     gen_server:call(?SERVER, {delete, AccountId}).
 
+%% @doc Prepare a new empty account
+%% @spec () -> kc_account:account()
+new_account() ->
+    gen_server:call(?SERVER, new_account).
+
 init(_Args) ->
     {ok, #server_state{}}.
 
@@ -81,9 +86,20 @@ handle_call({get, AccountId}, _From, State=#server_state{ accounts=Accounts}) ->
 
 handle_call({put, Account}, _From, State=#server_state{accounts=Accounts}) ->
     AccountId = kc_account:get_id(Account),
-    AccountsClean = [X || X <- Accounts, kc_account:get_id(X) =/= AccountId],
-    StateNew = State#server_state{ accounts= [Account| AccountsClean] },
-    {reply, ok, StateNew};
+    case AccountId of
+        0 ->
+            Account1 = Account#{ id := (kc_account:max_id(Accounts) + 1)},
+            StateNew = State#server_state{ accounts= [Account1 | Accounts] },
+            kc_ncurses:updated(accounts),
+            kc_client:loaded_event(),
+            {reply, ok, StateNew};
+        _ ->
+            AccountsClean = [X || X <- Accounts, kc_account:get_id(X) =/= AccountId],
+            StateNew = State#server_state{ accounts= [Account| AccountsClean] },
+            kc_ncurses:updated(accounts),
+            kc_client:loaded_event(),
+            {reply, ok, StateNew}
+    end;
 
 handle_call({delete, AccountId}, _From, State=#server_state{ accounts=Accounts}) ->
     case [Account || Account <- Accounts, kc_account:get_id(Account) =:= AccountId] of
@@ -92,8 +108,13 @@ handle_call({delete, AccountId}, _From, State=#server_state{ accounts=Accounts})
             StateNew = State#server_state{ accounts= Accounts -- [H], current=0 },
             ?LOG_DEBUG(#{ who => ?MODULE, what => StateNew, log => trace, level => debug }),
             kc_account:save(StateNew#server_state.file_path, StateNew#server_state.password, StateNew#server_state.accounts),
+            kc_ncurses:updated(accounts),
+            kc_client:loaded_event(),
             {reply, ok, StateNew }
-    end.
+    end;
+
+handle_call(new_account, _From, State) ->
+    {reply, kc_account:new(), State}.
 
 handle_cast(_Request, State) ->
     {noreply, State}.

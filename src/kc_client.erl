@@ -7,11 +7,12 @@
 %% interface functions
 -export([user_password/1, command/1, loaded_event/0]).
 %% state machine functions
--export([state_unloaded/3, state_loaded/3]).
+-export([state_unloaded/3, state_loaded/3, state_edit/3]).
 
 -include("kc.hrl").
 
 -define(NAME, ?MODULE).
+-define(HANDLE_COMMON, ?FUNCTION_NAME(T, C, D) -> handle_common(T, C, D)).
 
 -define(ARCHIVEPATH, "archive.protected").
 
@@ -68,10 +69,25 @@ state_unloaded(cast, {password, Pwd}, Data) ->
   {keep_state, Data};
 state_unloaded(cast, loaded, Data) ->
   ?LOG_DEBUG(#{ who => ?MODULE, what => "state_unloaded a loaded event", log => trace, level => debug }),
+  {next_state, state_loaded, Data};
+?HANDLE_COMMON.
+
+state_loaded(cast, {command, {addnew, _}}, Data) ->
+  kc_ncurses:edit( kc_server:new_account() ),
+  {next_state, state_edit, Data};
+state_loaded(cast, {command, {select, AccountId}}, Data) ->
+  ok;
+state_loaded(cast, {command, {filter, Pattern}}, Data) ->
+  ok;
+?HANDLE_COMMON.
+
+state_edit(cast, {command, {save, Account}}, Data) ->
+  kc_server:put(Account),
   {next_state, state_loaded, Data}.
 
-state_loaded(EventType, EventContent, Data) ->
-  ok.
+
+handle_common(cast, {command, quit}, _Data) ->
+  application:stop(kc_app).
 
 %%====================================================================
 %% Internal functions

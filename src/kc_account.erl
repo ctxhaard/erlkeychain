@@ -3,7 +3,7 @@
 
 -include("kc.hrl").
 
--export([load/2, save/3, new/1, get_id/1, matches/2, main/1]).
+-export([load/2, save/3, new/0, new/1, get_id/1, max_id/1, matches/2, main/1]).
 
 %% ----------------------------------------------------------------------------
 %% The public interface
@@ -39,23 +39,32 @@ save(FileName, Pwd, Accounts) ->
     ?LOG_DEBUG(#{ what => Port, log => trace, level => debug }),
     encode(Port, Pwd, Accounts).
 
+%% @spec () -> account()
+%% @doc Creates a new, empty account with id = 0
+new() ->
+    {account, #{ id => 0, title => <<"">>}}.
+
 %% @spec new(Accounts :: [account()]) -> account()
 %% @doc Creates a new, empty account. Accounts list is used to allocate a new, greater, id.
 new(Accounts) ->
-    MaxFun = fun({account, M}, Max) ->
-        X = maps:get(id, M, 0),
-        if X > Max -> X;
-            true -> Max
-        end
-             end,
-    MaxVal = lists:foldl(MaxFun, 0, Accounts),
-    {account, #{ id => (MaxVal + 1), title => <<"">> }}.
+    {account, #{ id => (max_id(Accounts) + 1), title => <<"">> }}.
 
 %% @spec get_id(Account) -> integer()
 %% @doc Gets the account identifier.
 get_id({account, Map}) ->
     {ok, Id} = maps:find(id, Map),
     Id.
+
+%% @spec (Accounts :: [account()]) -> integer()
+%% @doc Return the maximum value of account id in Accounts
+max_id(Accounts) ->
+    MaxFun = fun({account, M}, Max) ->
+        X = maps:get(id, M, 0),
+        if X > Max -> X;
+            true -> Max
+        end
+    end,
+    lists:foldl(MaxFun, 0, Accounts).
 
 %% @spec matches( Account::account(), MP:: re:mp() ) -> bool()
 %% @doc Check if any of the account fields matches the given regular expression
