@@ -7,11 +7,14 @@
 -export([start_link/0, load/2, first/0, next/0, get/1, put/1, delete/1]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2]).
 
--record(state, {accounts = [], current = 0, file_path, password}).
+-record(server_state, {accounts = [], current = 0, file_path, password}).
 
 -define(SERVER,?MODULE).
 
-%% gen_server behavior
+%%%===================================================================
+%%% Spawning and gen_server implementation
+%%%===================================================================
+
 start_link() ->
     gen_server:start_link({local, ?SERVER}, ?MODULE, [], [] ).
 
@@ -47,45 +50,48 @@ delete(AccountId) ->
     gen_server:call(?SERVER, {delete, AccountId}).
 
 init(_Args) ->
-    {ok, #state{}}.
+    {ok, #server_state{}}.
 
 handle_call({load, FilePath, Pwd}, _From, _State) ->
     Accounts = kc_account:load(FilePath, Pwd),
-    {reply, ok, #state{ accounts=Accounts, file_path = FilePath, password = Pwd }};
+    ?LOG_DEBUG(#{ who => ?MODULE, what => "server loaded accounts", log => trace, level => debug }),
+    kc_ncurses:updated(accounts),
+    kc_client:loaded_event(),
+    {reply, ok, #server_state{ accounts=Accounts, file_path = FilePath, password = Pwd }};
 
-handle_call(first, _From, State = #state{ accounts=Accounts}) when Accounts =/= [] ->
-    {reply, hd(Accounts), State#state{ current = 1 }};
+handle_call(first, _From, State = #server_state{ accounts=Accounts}) when Accounts =/= [] ->
+    {reply, hd(Accounts), State#server_state{ current = 1 }};
 
-handle_call(first, _From, State = #state{ accounts=Accounts}) when Accounts =:= [] ->
-    {reply, notfound, State#state{ current = 0 }};
+handle_call(first, _From, State = #server_state{ accounts=Accounts}) when Accounts =:= [] ->
+    {reply, notfound, State#server_state{ current = 0 }};
 
-handle_call(next, _From, State = #state{ accounts=Accounts, current=Current}) ->
+handle_call(next, _From, State = #server_state{ accounts=Accounts, current=Current}) ->
     try
         Next = Current + 1,
-        {reply, lists:nth(Next, Accounts), State#state{ current = Next }}
+        {reply, lists:nth(Next, Accounts), State#server_state{ current = Next }}
     catch
         error:_ -> {reply, notfound, State}
     end;
 
-handle_call({get, AccountId}, _From, State=#state{ accounts=Accounts}) ->
+handle_call({get, AccountId}, _From, State=#server_state{ accounts=Accounts}) ->
     case [Account || Account <- Accounts, kc_account:get_id(Account) =:= AccountId] of
         [] -> {reply, notfound, State};
         [H|_] -> {reply, H, State}
     end;
 
-handle_call({put, Account}, _From, State=#state{accounts=Accounts}) ->
+handle_call({put, Account}, _From, State=#server_state{accounts=Accounts}) ->
     AccountId = kc_account:get_id(Account),
     AccountsClean = [X || X <- Accounts, kc_account:get_id(X) =/= AccountId],
-    StateNew = State#state{ accounts= [Account| AccountsClean] },
+    StateNew = State#server_state{ accounts= [Account| AccountsClean] },
     {reply, ok, StateNew};
 
-handle_call({delete, AccountId}, _From, State=#state{ accounts=Accounts}) ->
+handle_call({delete, AccountId}, _From, State=#server_state{ accounts=Accounts}) ->
     case [Account || Account <- Accounts, kc_account:get_id(Account) =:= AccountId] of
         [] -> {reply, notfound, State};
         [H|_] ->
-            StateNew = State#state{ accounts= Accounts -- [H], current=0 },
-            ?LOG_DEBUG(#{ what => StateNew, log => trace, level => debug }),
-            kc_account:save(StateNew#state.file_path, StateNew#state.password, StateNew#state.accounts),
+            StateNew = State#server_state{ accounts= Accounts -- [H], current=0 },
+            ?LOG_DEBUG(#{ who => ?MODULE, what => StateNew, log => trace, level => debug }),
+            kc_account:save(StateNew#server_state.file_path, StateNew#server_state.password, StateNew#server_state.accounts),
             {reply, ok, StateNew }
     end.
 
