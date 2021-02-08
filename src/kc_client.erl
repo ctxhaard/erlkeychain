@@ -27,7 +27,7 @@
 %        |     +----------+---+ <-----+ save
 %        v                |           |
 %  +-----+--------+       |    +------+-------+
-%  | account_sele |       +--->+ account_edit |
+%  |  selected    |       +--->+     edit     |
 %  +----------+---+     new    +-------+------+
 %             |                        ^
 %             +------------------------+
@@ -92,6 +92,12 @@ state_loaded(cast, {command, {select, AccountId}}, Data) ->
 
 state_loaded(cast, {command, {filter, Pattern}}, Data) ->
   %% TODO: reload accounts applying filter Pattern
+  PatternNew = case Pattern of
+    "" -> undefined;
+    Other -> Other
+  end,
+  kc_server:set_pattern(PatternNew),
+  kc_ncurses:updated(accounts),
   {keep_state, Data};
 ?HANDLE_COMMON.
 
@@ -113,21 +119,23 @@ state_selected(cast, {command, {cancel, _}}, Data) ->
 
 state_selected(cast, loaded, Data) ->
   kc_ncurses:updated(accounts),
-  {next_state, state_loaded, Data}.
+  {next_state, state_loaded, Data};
+?HANDLE_COMMON.
 
 %% ------------------------------------------------
 %%           EDIT STATE
 %% ------------------------------------------------
 state_edit(cast, {command, {save, Account}}, Data) ->
   kc_server:put(Account),
-  {next_state, state_loaded, Data}.
+  {next_state, state_loaded, Data};
+?HANDLE_COMMON.
 
 %% ------------------------------------------------
 %%           COMMON EVENT HANDLERS
 %% ------------------------------------------------
 handle_common(cast, {command, {quit, _}}, Data) ->
   kc_ncurses:clean(),
-  application:stop(kc_app),
+  erlang:halt(0),
   {keep_state, Data};
 
 handle_common(cast, loaded, Data) ->

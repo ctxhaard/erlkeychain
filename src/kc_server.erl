@@ -4,10 +4,10 @@
 
 -behavior(gen_server).
 
--export([start_link/0, load/2, first/0, next/0, get/1, put/1, delete/1, new_account/0]).
+-export([start_link/0, load/2, first/0, set_pattern/1, next/0, get/1, put/1, delete/1, new_account/0]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2]).
 
--record(server_state, {accounts = [], current = 0, file_path, password}).
+-record(server_state, {accounts = [], current = 0, file_path, password, pattern}).
 
 -define(SERVER,?MODULE).
 
@@ -28,6 +28,12 @@ load(FilePath, Pwd) ->
 %% @spec () -> kc_account:account() | notfound
 first() ->
     gen_server:call(?SERVER, first).
+
+%% @doc Set the pattern to filter accounts with
+%% @spec (Pattern :: Pwd::iolist() ) -> ok
+set_pattern(Pattern) ->
+    gen_server:call(?SERVER, {setpattern, Pattern}).
+
 
 %% @doc Get the first element of the accounts list, if any
 %% @spec () -> kc_account:account() | notfound
@@ -63,18 +69,39 @@ handle_call({load, FilePath, Pwd}, _From, _State) ->
     kc_client:loaded_event(),
     {reply, ok, #server_state{ accounts=Accounts, file_path = FilePath, password = Pwd }};
 
-handle_call(first, _From, State = #server_state{ accounts=Accounts}) when Accounts =/= [] ->
-    {reply, hd(Accounts), State#server_state{ current = 1 }};
-
-handle_call(first, _From, State = #server_state{ accounts=Accounts}) when Accounts =:= [] ->
+handle_call(first, _From, State = #server_state{ accounts=[]}) ->
     {reply, notfound, State#server_state{ current = 0 }};
 
-handle_call(next, _From, State = #server_state{ accounts=Accounts, current=Current}) ->
+handle_call(first, _From, State = #server_state{ accounts=Accounts, pattern = undefined}) ->
+    [H|_] = Accounts,
+    {reply, H, State#server_state{ current = 1 }};
+
+handle_call(first, _From, State = #server_state{ accounts=Accounts, pattern = Pattern}) ->
+    case kc_account:next(Accounts, 0, Pattern) of
+        notfound -> {reply, notfound, State#server_state{ current = 0 }};
+        {Index, Account} -> {reply, Account, State#server_state{ current = Index }}
+    end;
+
+handle_call({setpattern, Pattern}, _From, State = #server_state{ }) ->
+    StateNew = State#server_state{ pattern = Pattern, current = 0},
+    kc_client:loaded_event(),
+    {reply, ok, StateNew};
+    
+handle_call(next, _From, State = #server_state{ accounts=Accounts, current=Current, pattern = undefined }) ->
     try
         Next = Current + 1,
         {reply, lists:nth(Next, Accounts), State#server_state{ current = Next }}
     catch
         error:_ -> {reply, notfound, State}
+    end;
+
+handle_call(next, _From, State = #server_state{ accounts=Accounts, current=Current, pattern=Pattern }) ->
+    case kc_account:next(Accounts, Current, Pattern) of
+        {Id, Account} -> 
+            StateNew = State#server_state{current = Id},
+            {reply, Account, StateNew};
+        _ ->
+            {reply, notfound, State}
     end;
 
 handle_call({get, AccountId}, _From, State=#server_state{ accounts=Accounts}) ->

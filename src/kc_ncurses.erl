@@ -72,11 +72,10 @@ handle_cast(prompt_for_password, State = #ncurses_state{ password_prompt=Prompt 
   {noreply, State};
 
 handle_cast({updated, accounts}, State = #ncurses_state{window=W, prompt=Prompt }) ->
-  %% TODO: rimuovere la window che mostra l'account selezionato
   A = kc_server:first(),
   cecho:werase(W),
   {ok, IdNext} = list_account(A, W, 0),
-  Text = Prompt( io_lib:format("Select an account by keyword or by index (1-~B 0:add new [q]uit)", [IdNext-1]) ),
+  Text = Prompt( io_lib:format("Select an account by keyword or by index (1-~B 0:add new [q]uit)", [IdNext]) ),
   kc_client:command(get_command(Text)),
   {noreply, State};
 

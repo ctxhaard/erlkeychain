@@ -3,7 +3,7 @@
 
 -include("kc.hrl").
 
--export([load/2, save/3, new/0, new/1, get_id/1, max_id/1, matches/2, main/1]).
+-export([load/2, save/3, new/0, new/1, get_id/1, max_id/1, next/3, matches/2, main/1]).
 
 %% ----------------------------------------------------------------------------
 %% The public interface
@@ -65,6 +65,15 @@ max_id(Accounts) ->
         end
     end,
     lists:foldl(MaxFun, 0, Accounts).
+
+%% @spec next( [account()], integer(), iodata() ) -> {integer(), account()} | notfound
+%% @doc Check if any of the account fields matches the given regular expression
+next(Accounts, Index, Pattern) ->
+    case re:compile(Pattern) of
+        {ok, MP} ->
+            next(Accounts, 0, Index, MP);
+        _ -> throw(badarg)
+    end.
 
 %% @spec matches( Account::account(), MP:: re:mp() ) -> bool()
 %% @doc Check if any of the account fields matches the given regular expression
@@ -157,6 +166,23 @@ add_field(Accumulator, Field, Value) ->
 backup_name(FileName, {{Year,Month,Day},{Hours,Minutes, Seconds}}) ->
     lists:flatten(io_lib:format("~4..0B~2..0B~2..0B~2..0B~2..0B~2..0B_~s.bkp", [Year, Month, Day, Hours, Minutes, Seconds, FileName])).
 
+next([], _, _, _) ->
+    notfound;
+
+next(Accounts, Index, Min, MP) when Index < Min ->
+    [_|T] = Accounts,
+    next(T, Index + 1, Min, MP);
+
+next(Accounts, Index, Min, MP) ->
+    [H|T] = Accounts,
+    Match = kc_account:matches(H, MP),
+    if 
+        false =:= Match ->
+            next(T, Index + 1, Min, MP);
+        true ->
+            {Index + 1, H}
+    end.
+
 %% ----------------------------------------------------------------------------
 %% Entry point
 %% ----------------------------------------------------------------------------
@@ -168,6 +194,38 @@ main(Args) ->
 %% ----------------------------------------------------------------------------
 %% Test cases
 %% ----------------------------------------------------------------------------
+next_test_() ->
+    Accounts = [
+        {account,
+            #{title => "Amazon",
+                url => "http://www.amazon.com",
+                username => "carlo.romasin",
+                password => "one two three"}},
+        {account,
+            #{ title => "Google",
+                url => "http://www.google.com",
+                username => "c.tomasin@gmail,com",
+                password => "uno due tre"}
+        }
+    ],
+    [
+        ?_assertEqual({1, {account,
+              #{title => "Amazon",
+                url => "http://www.amazon.com",
+                username => "carlo.romasin",
+                password => "one two three"}}}, kc_account:next(Accounts, 0, "amazon")),
+        ?_assertEqual({2, {account, #{ title => "Google",
+                        url => "http://www.google.com",
+                        username => "c.tomasin@gmail,com",
+                        password => "uno due tre"}
+                    }}, kc_account:next(Accounts, 0, "google")),
+        ?_assertEqual({2, {account, #{ title => "Google",
+                        url => "http://www.google.com",
+                        username => "c.tomasin@gmail,com",
+                        password => "uno due tre"}
+                    }}, kc_account:next(Accounts, 1, "masin"))
+    ].
+
 matches_test_() ->
     Account =
         {account,
