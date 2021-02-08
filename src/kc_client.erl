@@ -7,7 +7,7 @@
 %% interface functions
 -export([user_password/1, command/1, loaded_event/0]).
 %% state machine functions
--export([state_unloaded/3, state_loaded/3, state_edit/3]).
+-export([state_unloaded/3, state_loaded/3, state_selected/3, state_edit/3]).
 
 -include("kc.hrl").
 
@@ -32,8 +32,9 @@
 %             |                        ^
 %             +------------------------+
 %                      edit
+
 %%====================================================================
-%% interface functions
+%% interface functions (events)
 %%====================================================================
 user_password(Pwd) ->
   gen_statem:cast(?NAME, {password, Pwd}).
@@ -63,31 +64,75 @@ callback_mode() ->
 terminate(_Reason, _State, _Data) ->
   ok.
 
+%% ------------------------------------------------
+%%           UNLOADED STATE
+%% ------------------------------------------------
 state_unloaded(cast, {password, Pwd}, Data) ->
   ?LOG_DEBUG(#{ who => ?MODULE, what => "state_unloaded received a password", log => trace, level => debug }),
   kc_server:load(?ARCHIVEPATH, Pwd),
   {keep_state, Data};
+
 state_unloaded(cast, loaded, Data) ->
   ?LOG_DEBUG(#{ who => ?MODULE, what => "state_unloaded a loaded event", log => trace, level => debug }),
+  kc_ncurses:updated(accounts),
   {next_state, state_loaded, Data};
 ?HANDLE_COMMON.
 
+%% ------------------------------------------------
+%%           LOADED STATE
+%% ------------------------------------------------
 state_loaded(cast, {command, {addnew, _}}, Data) ->
   kc_ncurses:edit( kc_server:new_account() ),
   {next_state, state_edit, Data};
+
 state_loaded(cast, {command, {select, AccountId}}, Data) ->
-  ok;
+  A = kc_server:get(AccountId),
+  kc_ncurses:show(A),
+  {next_state, state_selected, Data};
+
 state_loaded(cast, {command, {filter, Pattern}}, Data) ->
-  ok;
+  %% TODO: reload accounts applying filter Pattern
+  {keep_state, Data};
 ?HANDLE_COMMON.
 
+%% ------------------------------------------------
+%%           SELECTED STATE
+%% ------------------------------------------------
+state_selected(cast, {command, {delete, AccountId}}, Data) ->
+  kc_server:delete(AccountId),
+  {next_state, state_loaded, Data};
+
+state_selected(cast, {command, {edit, AccountId}}, Data) ->
+  A = kc_server:get(AccountId),
+  kc_ncurses:edit(A),
+  {next_state, state_edit, Data};
+
+state_selected(cast, {command, {cancel, _}}, Data) ->
+  kc_ncurses:updated(accounts),
+  {next_state, state_loaded, Data};
+
+state_selected(cast, loaded, Data) ->
+  kc_ncurses:updated(accounts),
+  {next_state, state_loaded, Data}.
+
+%% ------------------------------------------------
+%%           EDIT STATE
+%% ------------------------------------------------
 state_edit(cast, {command, {save, Account}}, Data) ->
   kc_server:put(Account),
   {next_state, state_loaded, Data}.
 
+%% ------------------------------------------------
+%%           COMMON EVENT HANDLERS
+%% ------------------------------------------------
+handle_common(cast, {command, {quit, _}}, Data) ->
+  kc_ncurses:clean(),
+  application:stop(kc_app),
+  {keep_state, Data};
 
-handle_common(cast, {command, quit}, _Data) ->
-  application:stop(kc_app).
+handle_common(cast, loaded, Data) ->
+  kc_ncurses:updated(accounts),
+  {keep_state, Data}.
 
 %%====================================================================
 %% Internal functions

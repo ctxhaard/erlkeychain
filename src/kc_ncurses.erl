@@ -9,9 +9,8 @@
 -behaviour(gen_server).
 
 -export([start_link/0]).
--export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2,
-  code_change/3]).
--export([prompt_for_password/0, updated/1, edit/1]).
+-export([init/1, handle_call/3, handle_cast/2, handle_info/2, terminate/2, code_change/3]).
+-export([prompt_for_password/0, updated/1, edit/1, show/1, clean/0]).
 
 -define(SERVER, ?MODULE).
 
@@ -34,6 +33,12 @@ updated(What = accounts) ->
 
 edit(Account) ->
   gen_server:cast(?SERVER, {edit, Account}).
+
+show(Account) ->
+  gen_server:cast(?SERVER, {show, Account}).
+
+clean() ->
+  gen_server:cast(?SERVER, clean).
 
 %%%===================================================================
 %%% Spawning and gen_server implementation
@@ -65,7 +70,9 @@ handle_cast(prompt_for_password, State = #ncurses_state{ password_prompt=Prompt 
   Pwd = Prompt("Insert your password"),
   kc_client:user_password(Pwd),
   {noreply, State};
+
 handle_cast({updated, accounts}, State = #ncurses_state{window=W, prompt=Prompt }) ->
+  %% TODO: rimuovere la window che mostra l'account selezionato
   A = kc_server:first(),
   cecho:werase(W),
   {ok, IdNext} = list_account(A, W, 0),
@@ -103,8 +110,42 @@ handle_cast({edit, {account, M}}, State = #ncurses_state{ prompt=Prompt }) ->
   end,
   {noreply, State};
 
+handle_cast({show, {account, M}}, State = #ncurses_state{ window = Win, prompt = Prompt }) ->
+  AccountId = maps:get(id, M),
+  Title = maps:get(title, M, ""),
+  {MaxY, MaxX } = cecho:getmaxyx(Win),
+  WinE = cecho:newwin(MaxY - 8, MaxX - 8, 4, 4),
+  cecho:mvwaddstr(WinE, 0, 2, io_lib:format("Id: ~B", [AccountId])),
+  cecho:mvwaddstr(WinE, 1, 2, io_lib:format("Title: ~s", [Title])),
+  cecho:mvwaddstr(WinE, 2, 2, io_lib:format("URL: ~s", [maps:get(url, M, "")])),
+  cecho:mvwaddstr(WinE, 3, 2, io_lib:format("Username: ~s", [maps:get(username, M, "")])),
+  cecho:mvwaddstr(WinE, 4, 2, io_lib:format("Password: ~s", [maps:get(password, M, "")])),
+  cecho:mvwaddstr(WinE, 5, 2, io_lib:format("Notes: ~s", [maps:get(notes, M, "")])),
+  cecho:mvwaddstr(WinE, 6, 2, io_lib:format("Other: ~s", [maps:get(other, M, "")])),
+  cecho:box(WinE, 0, 0),
+  cecho:wrefresh(WinE),
+  Cmd = case Prompt( "[e]dit, [d]elete] or [C]ancel?" ) of
+          "e" ->
+            {edit, AccountId};
+          "d" ->
+            case Prompt( io_lib:format("Confirm to delete \"~s\" ([y] or [N])?", [Title]) ) of
+              "y" ->
+                {delete, AccountId};
+              _ ->
+                {cancel, 0}
+            end;
+          _ ->
+            {cancel, 0}
+  end,
+  kc_client:command(Cmd),
+  {noreply, State};
+
 handle_cast(Request, State = #ncurses_state{}) ->
   ?LOG_DEBUG(#{ who => ?MODULE, what => "Unmanaged cast", data => Request, log => trace, level => error }),
+  {noreply, State};
+
+handle_cast(clean, State) ->
+  application:stop(cecho),
   {noreply, State}.
 
 handle_info(_Info, State = #ncurses_state{}) ->

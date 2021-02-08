@@ -60,7 +60,6 @@ init(_Args) ->
 handle_call({load, FilePath, Pwd}, _From, _State) ->
     Accounts = kc_account:load(FilePath, Pwd),
     ?LOG_DEBUG(#{ who => ?MODULE, what => "server loaded accounts", log => trace, level => debug }),
-    kc_ncurses:updated(accounts),
     kc_client:loaded_event(),
     {reply, ok, #server_state{ accounts=Accounts, file_path = FilePath, password = Pwd }};
 
@@ -84,22 +83,20 @@ handle_call({get, AccountId}, _From, State=#server_state{ accounts=Accounts}) ->
         [H|_] -> {reply, H, State}
     end;
 
-handle_call({put, Account}, _From, State=#server_state{accounts=Accounts}) ->
+handle_call({put, Account = {account, Map}}, _From, State=#server_state{accounts=Accounts}) ->
     AccountId = kc_account:get_id(Account),
     case AccountId of
         0 ->
-            Account1 = Account#{ id := (kc_account:max_id(Accounts) + 1)},
-            StateNew = State#server_state{ accounts= [Account1 | Accounts] },
-            kc_ncurses:updated(accounts),
-            kc_client:loaded_event(),
-            {reply, ok, StateNew};
+            Account1 = {account, Map#{ id := (kc_account:max_id(Accounts) + 1)}},
+            StateNew = State#server_state{ accounts= [Account1 | Accounts] };
         _ ->
             AccountsClean = [X || X <- Accounts, kc_account:get_id(X) =/= AccountId],
-            StateNew = State#server_state{ accounts= [Account| AccountsClean] },
-            kc_ncurses:updated(accounts),
-            kc_client:loaded_event(),
-            {reply, ok, StateNew}
-    end;
+            StateNew = State#server_state{ accounts= [Account| AccountsClean] }
+    end,
+    #server_state{ file_path = Pt, password =  Pw, accounts = As} = StateNew,
+    kc_account:save(Pt, Pw, As),
+    kc_client:loaded_event(),
+    {reply, ok, StateNew};
 
 handle_call({delete, AccountId}, _From, State=#server_state{ accounts=Accounts}) ->
     case [Account || Account <- Accounts, kc_account:get_id(Account) =:= AccountId] of
@@ -107,8 +104,8 @@ handle_call({delete, AccountId}, _From, State=#server_state{ accounts=Accounts})
         [H|_] ->
             StateNew = State#server_state{ accounts= Accounts -- [H], current=0 },
             ?LOG_DEBUG(#{ who => ?MODULE, what => StateNew, log => trace, level => debug }),
-            kc_account:save(StateNew#server_state.file_path, StateNew#server_state.password, StateNew#server_state.accounts),
-            kc_ncurses:updated(accounts),
+            #server_state{ file_path = Pt, password =  Pw, accounts = As} = StateNew,
+            kc_account:save(Pt, Pw, As),
             kc_client:loaded_event(),
             {reply, ok, StateNew }
     end;
