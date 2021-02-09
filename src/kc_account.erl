@@ -25,15 +25,15 @@ load(FilePath, Pwd) ->
     ),
     decode(Port, Pwd).
 
-%% @spec save(FileName ::iolist(), Pwd :: iolist(), Accounts :: [account()]) -> ok
+%% @spec save(FilePath ::iolist(), Pwd :: iolist(), Accounts :: [account()]) -> ok
 %% @doc Save the whole accounts list to persistence file, using password to encrypt it.
 %%
 %% The current file is moved unchanged to a backup copy, prior to create the new one
-save(FileName, Pwd, Accounts) ->
-    file:copy(FileName, backup_name(FileName, calendar:universal_time())),
-    FileNameBin = list_to_binary(FileName),
+save(FilePath, Pwd, Accounts) ->
+    file:copy(FilePath, backup_name(FilePath, calendar:universal_time())),
+    FilePathBin = list_to_binary(FilePath),
     Port = open_port(
-        {spawn, <<"openssl enc -aes-256-cbc -md sha256 -salt -out ", FileNameBin/binary>>},
+        {spawn, <<"openssl enc -aes-256-cbc -md sha256 -salt -out ", FilePathBin/binary>>},
         [ use_stdio, stderr_to_stdout, exit_status, {line, 255} ]
     ),
     ?LOG_DEBUG(#{ what => Port, log => trace, level => debug }),
@@ -160,11 +160,13 @@ add_field(Accumulator, Field, Value) ->
     [{account, Map} | Tail] = Accumulator,
     [{account, maps:put(Field, Value, Map) } | Tail].
 
-%% @spec (FileName :: chars(), DateTime :: datetime()) -> string()
-%% @doc Provides a backup file name, given a filename
-%% @todo: convert from FileName to FilePath
-backup_name(FileName, {{Year,Month,Day},{Hours,Minutes, Seconds}}) ->
-    lists:flatten(io_lib:format("~4..0B~2..0B~2..0B~2..0B~2..0B~2..0B_~s.bkp", [Year, Month, Day, Hours, Minutes, Seconds, FileName])).
+%% @spec (FilePath :: chars(), DateTime :: datetime()) -> string()
+%% @doc Provides a backup file name, given a file path
+backup_name(FilePath, {{Year,Month,Day},{Hours,Minutes, Seconds}}) ->
+    Dir = filename:dirname(FilePath),
+    File = filename:basename(FilePath),
+    FileBkp = io_lib:format("~4..0B~2..0B~2..0B~2..0B~2..0B~2..0B_~s.bkp", [Year, Month, Day, Hours, Minutes, Seconds, File]),
+    filename:join([Dir,FileBkp]).
 
 next([], _, _, _) ->
     notfound;
@@ -187,8 +189,8 @@ next(Accounts, Index, Min, MP) ->
 %% Entry point
 %% ----------------------------------------------------------------------------
 main(Args) ->
-    [FileName|Password] = Args,
-    Accounts = load(FileName, Password),
+    [FilePath|Password] = Args,
+    Accounts = load(FilePath, Password),
     io:format("Accounts:~n~p~n~n", [Accounts]).
 
 %% ----------------------------------------------------------------------------
@@ -279,8 +281,8 @@ matches_list_accounts_comprehension_test_() ->
     ].
 
 backup_name_test_() ->
-    FileName = "file.of.accounts",
-    BackupName = backup_name(FileName, {{2020,7, 9}, {9,8,7}}),
+    FilePath = "/path/to/file.of.accounts",
+    BackupName = backup_name(FilePath, {{2020,7, 9}, {9,8,7}}),
     [
-        ?_assertEqual("20200709090807_file.of.accounts.bkp", BackupName)
+        ?_assertEqual("/path/to/20200709090807_file.of.accounts.bkp", BackupName)
     ].

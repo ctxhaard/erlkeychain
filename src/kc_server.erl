@@ -69,6 +69,12 @@ handle_call({load, FilePath, Pwd}, _From, _State) ->
     kc_client:loaded_event(),
     {reply, ok, #server_state{ accounts=Accounts, file_path = FilePath, password = Pwd }};
 
+
+handle_call({setpattern, Pattern}, _From, State = #server_state{ }) ->
+    StateNew = State#server_state{ pattern = Pattern, current = 0},
+    kc_client:loaded_event(),
+    {reply, ok, StateNew};
+
 handle_call(first, _From, State = #server_state{ accounts=[]}) ->
     {reply, notfound, State#server_state{ current = 0 }};
 
@@ -81,11 +87,6 @@ handle_call(first, _From, State = #server_state{ accounts=Accounts, pattern = Pa
         notfound -> {reply, notfound, State#server_state{ current = 0 }};
         {Index, Account} -> {reply, Account, State#server_state{ current = Index }}
     end;
-
-handle_call({setpattern, Pattern}, _From, State = #server_state{ }) ->
-    StateNew = State#server_state{ pattern = Pattern, current = 0},
-    kc_client:loaded_event(),
-    {reply, ok, StateNew};
     
 handle_call(next, _From, State = #server_state{ accounts=Accounts, current=Current, pattern = undefined }) ->
     try

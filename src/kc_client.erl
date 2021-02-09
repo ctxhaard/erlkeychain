@@ -5,7 +5,7 @@
 %% gen_statem callback functions
 -export([init/1, callback_mode/0, terminate/3]).
 %% interface functions
--export([user_password/1, command/1, loaded_event/0]).
+-export([user_path_password/2, command/1, loaded_event/0]).
 %% state machine functions
 -export([state_unloaded/3, state_loaded/3, state_selected/3, state_edit/3]).
 
@@ -13,8 +13,6 @@
 
 -define(NAME, ?MODULE).
 -define(HANDLE_COMMON, ?FUNCTION_NAME(T, C, D) -> handle_common(T, C, D)).
-
--define(ARCHIVEPATH, "archive.protected").
 
 %              +-----------------+
 %              |    unloaded     |
@@ -36,8 +34,8 @@
 %%====================================================================
 %% interface functions (events)
 %%====================================================================
-user_password(Pwd) ->
-  gen_statem:cast(?NAME, {password, Pwd}).
+user_path_password(Path, Pwd) ->
+  gen_statem:cast(?NAME, {load, Path, Pwd}).
 
 command(Command) ->
   gen_statem:cast(?NAME,  {command, Command}).
@@ -55,7 +53,7 @@ start_link() ->
   gen_statem:start_link({local, ?NAME}, ?MODULE, [], []).
 
 init(_Args) ->
-  kc_ncurses:prompt_for_password(),
+  kc_ncurses:prompt_for_path_password(),
   {ok, state_unloaded, []}.
 
 callback_mode() ->
@@ -67,13 +65,13 @@ terminate(_Reason, _State, _Data) ->
 %% ------------------------------------------------
 %%           UNLOADED STATE
 %% ------------------------------------------------
-state_unloaded(cast, {password, Pwd}, Data) ->
-  ?LOG_DEBUG(#{ who => ?MODULE, what => "state_unloaded received a password", log => trace, level => debug }),
-  kc_server:load(?ARCHIVEPATH, Pwd),
+state_unloaded(cast, {load, Path, Pwd}, Data) ->
+%%  ?LOG_DEBUG(#{ who => ?MODULE, what => "state_unloaded received a password", log => trace, level => debug }),
+  kc_server:load(Path, Pwd),
   {keep_state, Data};
 
 state_unloaded(cast, loaded, Data) ->
-  ?LOG_DEBUG(#{ who => ?MODULE, what => "state_unloaded a loaded event", log => trace, level => debug }),
+%%  ?LOG_DEBUG(#{ who => ?MODULE, what => "state_unloaded a loaded event", log => trace, level => debug }),
   kc_ncurses:updated(accounts),
   {next_state, state_loaded, Data};
 ?HANDLE_COMMON.
@@ -88,10 +86,12 @@ state_loaded(cast, {command, {addnew, _}}, Data) ->
 state_loaded(cast, {command, {select, AccountId}}, Data) ->
   A = kc_server:get(AccountId),
   kc_ncurses:show(A),
-  {next_state, state_selected, Data};
+  case A of
+    notfound -> {keep_state, Data};
+    _ -> {next_state, state_selected, Data}
+  end;
 
 state_loaded(cast, {command, {filter, Pattern}}, Data) ->
-  %% TODO: reload accounts applying filter Pattern
   PatternNew = case Pattern of
     "" -> undefined;
     Other -> Other
