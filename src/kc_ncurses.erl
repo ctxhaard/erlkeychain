@@ -55,8 +55,16 @@ init([]) ->
   % disable echo to hide user password
   ok = cecho:noecho(),
 
+  cecho:start_color(),
+  cecho:init_pair(1, ?ceCOLOR_BLACK, ?ceCOLOR_WHITE),
+  %%cecho:attron(?ceA_BOLD bor ?ceCOLOR_PAIR(1)),
+  %%cecho:refresh(),
+
   {MaxY, MaxX} = cecho:getmaxyx(),
-  Win = cecho:newwin(MaxY -1, MaxX, 0, 0),
+  Win = cecho:newwin(MaxY, MaxX, 0, 0),
+  cecho:attron(Win,?ceA_REVERSE),
+  cecho:wrefresh(Win),
+
   WinP = cecho:newwin(1, MaxX, MaxY-1, 0),
   {ok, #ncurses_state{
     window = Win,
@@ -127,6 +135,7 @@ handle_cast({show, {account, M}}, State = #ncurses_state{ window = Win, prompt =
   Title = maps:get(title, M, ""),
   {MaxY, MaxX } = cecho:getmaxyx(Win),
   WinE = cecho:newwin(MaxY - 8, MaxX - 8, 4, 4),
+  cecho:attron(WinE,?ceA_REVERSE),
   cecho:mvwaddstr(WinE, 0, 2, io_lib:format("Id: ~B", [AccountId])),
   cecho:mvwaddstr(WinE, 1, 2, io_lib:format("Title: ~s", [Title])),
   cecho:mvwaddstr(WinE, 2, 2, io_lib:format("URL: ~s", [maps:get(url, M, "")])),

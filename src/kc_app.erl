@@ -14,7 +14,7 @@
 start(_StartType, StartArgs) ->
     kc_sup:start_link(StartArgs).
 
-start() -> kc_app:start([], [server]).
+start() -> kc_app:start([], [server, client]).
 
 stop(_State) ->
     ok.

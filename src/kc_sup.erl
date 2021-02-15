@@ -16,7 +16,10 @@
 -define(SERVER, ?MODULE).
 
 start_link() ->
-  supervisor:start_link({local, ?SERVER}, ?MODULE, all).
+  supervisor:start_link({local, ?SERVER}, ?MODULE, [server, client]).
+
+start_link([]) ->
+  supervisor:start_link({local, ?SERVER}, ?MODULE, [server, client]);
 
 start_link(StartArgs) ->
   supervisor:start_link({local, ?SERVER}, ?MODULE, StartArgs).
@@ -31,6 +34,8 @@ start_link(StartArgs) ->
 %%                  type => worker(),       % optional
 %%                  modules => modules()}   % optional
 init(StartArgs) ->
+  ?LOG_DEBUG(#{ who => ?MODULE, what => StartArgs, log => trace, level => debug }),
+
   ChildObs = #{
       id => kc_observable,
       start => {kc_observable, start_link, []},
@@ -56,29 +61,13 @@ init(StartArgs) ->
       type => worker
     },
 
-  ChildSpecs = case StartArgs of
-    [all] -> [
-      ChildObs,
-      ChildModel,
-      ChildView,
-      ChildController
-    ];
-    [] -> [
-      ChildObs,
-      ChildModel,
-      ChildView,
-      ChildController
-    ];
-    [server] -> [
-      ChildObs,
-      ChildModel
-      ];
-    [client] -> [
-      ChildView,
-      ChildController
-      ]
-  end,
+  ChildSpecs = lists:foldl(fun 
+    (server, List) -> [ChildObs, ChildModel] ++ List;
+    (client, List) -> List ++ [ChildView, ChildController];
+    (_, List) -> List
+  end, [], StartArgs),
   
+  ?LOG_DEBUG(#{ who => ?MODULE, what => ChildSpecs, log => trace, level => debug }),
   SupFlags = #{strategy => one_for_all,
     intensity => 0,
     period => 1},
