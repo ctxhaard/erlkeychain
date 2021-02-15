@@ -73,7 +73,7 @@ handle_cast(prompt_for_path_password, State = #ncurses_state{ prompt= Prompt, pa
            P -> P
          end,
   Pwd = PPrompt("Insert archive password"),
-  kc_client:user_path_password(Path,Pwd),
+  kc_controller:user_path_password(Path,Pwd),
   {noreply, State};
 
 handle_cast({updated, accounts}, State = #ncurses_state{window=W, prompt=Prompt }) ->
@@ -81,7 +81,7 @@ handle_cast({updated, accounts}, State = #ncurses_state{window=W, prompt=Prompt 
   cecho:werase(W),
   {ok, IdNext} = list_account(A, W, 0),
   Text = Prompt( io_lib:format("Select an account by keyword or by index (1-~B 0:add new [q]uit)", [IdNext]) ),
-  kc_client:command(get_command(Text)),
+  kc_controller:command(get_command(Text)),
   {noreply, State};
 
 handle_cast({edit, {account, M}}, State = #ncurses_state{ prompt=Prompt }) ->
@@ -108,9 +108,9 @@ handle_cast({edit, {account, M}}, State = #ncurses_state{ prompt=Prompt }) ->
         notes => Notes,
         other => Other
       }},
-      kc_client:command({save, Account1});
+      kc_controller:command({save, Account1});
     _ ->
-      kc_client:command({filter, ""})
+      kc_controller:command({filter, ""})
   end,
   {noreply, State};
 
@@ -119,7 +119,7 @@ handle_cast({show, notfound}, State = #ncurses_state{window=W, prompt=Prompt }) 
   cecho:werase(W),
   {ok, IdNext} = list_account(A, W, 0),
   Text = Prompt( io_lib:format("[not found] Select an account by keyword or by index (1-~B 0:add new [q]uit)", [IdNext]) ),
-  kc_client:command(get_command(Text)),
+  kc_controller:command(get_command(Text)),
   {noreply, State};
 
 handle_cast({show, {account, M}}, State = #ncurses_state{ window = Win, prompt = Prompt }) ->
@@ -149,7 +149,7 @@ handle_cast({show, {account, M}}, State = #ncurses_state{ window = Win, prompt =
           _ ->
             {cancel, 0}
   end,
-  kc_client:command(Cmd),
+  kc_controller:command(Cmd),
   {noreply, State};
 
 handle_cast(Request, State = #ncurses_state{}) ->

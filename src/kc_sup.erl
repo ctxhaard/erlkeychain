@@ -33,6 +33,12 @@ init([]) ->
     period => 1},
   ChildSpecs = [
     #{
+      id => kc_observable,
+      start => {kc_observable, start_link, []},
+      restart => transient,
+      type => worker
+    },
+    #{
       id => kc_model,
       start => {kc_server, start_link,[]},
       restart => transient,
@@ -46,7 +52,7 @@ init([]) ->
     },
     #{
       id => kc_controller,
-      start => {kc_client, start_link, []},
+      start => {kc_controller, start_link, []},
       restart => transient,
       type => worker}
   ],

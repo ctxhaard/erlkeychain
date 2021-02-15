@@ -12,7 +12,8 @@
       kc_app,
       kc_sup,
       kc_server,
-      kc_client,
+      kc_controller,
+      kc_observable,
       kc_ncurses
     ]},
 

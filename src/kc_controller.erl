@@ -1,11 +1,11 @@
--module(kc_client).
+-module(kc_controller).
 -behavior(gen_statem).
 
 -export([start_link/0]).
 %% gen_statem callback functions
 -export([init/1, callback_mode/0, terminate/3]).
 %% interface functions
--export([user_path_password/2, command/1, loaded_event/0]).
+-export([user_path_password/2, command/1, server_event/1]).
 %% state machine functions
 -export([state_unloaded/3, state_loaded/3, state_selected/3, state_edit/3]).
 
@@ -40,10 +40,6 @@ user_path_password(Path, Pwd) ->
 command(Command) ->
   gen_statem:cast(?NAME,  {command, Command}).
 
-loaded_event() ->
-  gen_statem:cast(?NAME, loaded).
-
-
 %%%===================================================================
 %%% Spawning and gen_server implementation
 %%%===================================================================
@@ -53,6 +49,7 @@ start_link() ->
   gen_statem:start_link({local, ?NAME}, ?MODULE, [], []).
 
 init(_Args) ->
+  kc_observable:add_observer(fun server_event/1),
   kc_ncurses:prompt_for_path_password(),
   {ok, state_unloaded, []}.
 
@@ -145,3 +142,6 @@ handle_common(cast, loaded, Data) ->
 %%====================================================================
 %% Internal functions
 %%====================================================================
+
+server_event(Event) ->
+  gen_statem:cast(?NAME, Event).

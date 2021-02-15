@@ -66,13 +66,13 @@ init(_Args) ->
 handle_call({load, FilePath, Pwd}, _From, _State) ->
     Accounts = kc_account:load(FilePath, Pwd),
     ?LOG_DEBUG(#{ who => ?MODULE, what => "server loaded accounts", log => trace, level => debug }),
-    kc_client:loaded_event(),
+    kc_observable:notify(loaded),
     {reply, ok, #server_state{ accounts=Accounts, file_path = FilePath, password = Pwd }};
 
 
 handle_call({setpattern, Pattern}, _From, State = #server_state{ }) ->
     StateNew = State#server_state{ pattern = Pattern, current = 0},
-    kc_client:loaded_event(),
+    kc_observable:notify(loaded),
     {reply, ok, StateNew};
 
 handle_call(first, _From, State = #server_state{ accounts=[]}) ->
@@ -123,7 +123,7 @@ handle_call({put, Account = {account, Map}}, _From, State=#server_state{accounts
     end,
     #server_state{ file_path = Pt, password =  Pw, accounts = As} = StateNew,
     kc_account:save(Pt, Pw, As),
-    kc_client:loaded_event(),
+    kc_observable:notify(loaded),
     {reply, ok, StateNew};
 
 handle_call({delete, AccountId}, _From, State=#server_state{ accounts=Accounts}) ->
@@ -134,7 +134,7 @@ handle_call({delete, AccountId}, _From, State=#server_state{ accounts=Accounts})
             ?LOG_DEBUG(#{ who => ?MODULE, what => StateNew, log => trace, level => debug }),
             #server_state{ file_path = Pt, password =  Pw, accounts = As} = StateNew,
             kc_account:save(Pt, Pw, As),
-            kc_client:loaded_event(),
+            kc_observable:notify(loaded),
             {reply, ok, StateNew }
     end;
 
