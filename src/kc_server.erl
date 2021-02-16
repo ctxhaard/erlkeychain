@@ -9,14 +9,14 @@
 
 -record(server_state, {accounts = [], current = 0, file_path, password, pattern}).
 
--define(SERVER,?MODULE).
+-define(SERVER,{global, ?MODULE}).
 
 %%%===================================================================
 %%% Spawning and gen_server implementation
 %%%===================================================================
 
 start_link() ->
-    gen_server:start_link({local, ?SERVER}, ?MODULE, [], [] ).
+    gen_server:start_link(?SERVER, ?MODULE, [], [] ).
 
 %% @doc Command the server to decrypt and load FilePath
 %% using Password
@@ -30,7 +30,7 @@ first() ->
     gen_server:call(?SERVER, first).
 
 %% @doc Set the pattern to filter accounts with
-%% @spec (Pattern :: Pwd::iolist() ) -> ok
+%% @spec (Pattern :: iolist() ) -> ok
 set_pattern(Pattern) ->
     gen_server:call(?SERVER, {setpattern, Pattern}).
 

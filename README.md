@@ -11,11 +11,29 @@ a ```gen_event``` process is used.
 $ rebar3 compile
 ```
 
-## Launch
+## Standalone Launch
 ```shell
 $ rebar3 shell
 ```
 
+## Distributed Launch
+
+### Server Example
+```shell
+erl -sname uno -set-cookie mycookie -pa  _build/default/lib/*/ebin -config config/sys.config
+```
+```erlang
+(uno@CV-LAP-CT)1> kc_app:start(null, [server]).
+{ok,<0.102.0>}
+```
+### Client Example
+```shell
+erl -sname due -set-cookie mycookie -pa  _build/default/lib/*/ebin -config config/sys.config
+```
+```erlang
+net_adm:ping('uno@CV-LAP-CT')
+kc_app:start(null, [client]).
+```
 ## Release
 ```shell
 $ rebar3 release

@@ -11,7 +11,7 @@
 
 -include("kc.hrl").
 
--define(NAME, ?MODULE).
+-define(NAME, {global, ?MODULE}).
 -define(HANDLE_COMMON, ?FUNCTION_NAME(T, C, D) -> handle_common(T, C, D)).
 
 %              +-----------------+
@@ -40,13 +40,16 @@ user_path_password(Path, Pwd) ->
 command(Command) ->
   gen_statem:cast(?NAME,  {command, Command}).
 
+server_event(Event) ->
+  gen_statem:cast(?NAME, Event).
+
 %%%===================================================================
 %%% Spawning and gen_server implementation
 %%%===================================================================
 
 start_link() ->
   ?LOG_DEBUG(#{ who => ?MODULE, what => ":start_link", log => trace, level => debug }),
-  gen_statem:start_link({local, ?NAME}, ?MODULE, [], []).
+  gen_statem:start_link(?NAME, ?MODULE, [], []).
 
 init(_Args) ->
   kc_observable:add_observer(fun server_event/1),
@@ -142,6 +145,3 @@ handle_common(cast, loaded, Data) ->
 %%====================================================================
 %% Internal functions
 %%====================================================================
-
-server_event(Event) ->
-  gen_statem:cast(?NAME, Event).

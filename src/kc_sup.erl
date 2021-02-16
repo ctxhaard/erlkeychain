@@ -13,16 +13,17 @@
 
 -export([init/1]).
 
--define(SERVER, ?MODULE).
+-define(SERVER, {local, ?MODULE}).
 
 start_link() ->
-  supervisor:start_link({local, ?SERVER}, ?MODULE, [server, client]).
+  supervisor:start_link(?SERVER, ?MODULE, [server, client]).
 
 start_link([]) ->
-  supervisor:start_link({local, ?SERVER}, ?MODULE, [server, client]);
+  supervisor:start_link(?SERVER, ?MODULE, [server, client]);
 
 start_link(StartArgs) ->
-  supervisor:start_link({local, ?SERVER}, ?MODULE, StartArgs).
+  supervisor:start_link(?SERVER, ?MODULE, StartArgs).
+
 
 %% sup_flags() = #{strategy => strategy(),         % optional
 %%                 intensity => non_neg_integer(), % optional
@@ -64,6 +65,8 @@ init(StartArgs) ->
   ChildSpecs = lists:foldl(fun 
     (server, List) -> [ChildObs, ChildModel] ++ List;
     (client, List) -> List ++ [ChildView, ChildController];
+    % ({client, _Node}, List) ->
+    %     List ++ [ChildView, ChildController];
     (_, List) -> List
   end, [], StartArgs),
   

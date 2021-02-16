@@ -1,0 +1,4 @@
+%% encoding: UTF-8
+{application,kc}.
+{modules,[kc_account,kc_app,kc_controller,kc_ncurses,kc_observable,kc_server,
+          kc_sup]}.

@@ -6,13 +6,13 @@
 -export([start_link/0, notify/1, add_observer/1, remove_handler/1]).
 -export([init/1, handle_event/2, handle_call/2]).
 
--define(SERVER, ?MODULE).
+-define(SERVER, {global, ?MODULE}).
 
 %% ----------------------------------------------------------------------------
 %%  Public interface
 %% ----------------------------------------------------------------------------
 start_link() ->
-    Ret = gen_event:start_link({local, ?SERVER}, []),
+    Ret = gen_event:start_link(?SERVER, []),
     gen_event:add_handler(?SERVER, kc_observable,[]),
     Ret.
 
