@@ -18,7 +18,7 @@ load(FilePath, Pwd) ->
     % openssl enc -d -aes-256-cbc -md sha256 -in <file>
     % passo la password nello standard input di openssl, in modo
     % che la password non sia visibile nella lista dei processi
-    FilePathBin = list_to_binary(FilePath),
+    FilePathBin = iolist_to_binary(FilePath),
     Port = open_port(
         {spawn, <<"openssl enc -d -aes-256-cbc -md sha256 -in ", FilePathBin/binary>>},
         [ use_stdio, stderr_to_stdout, exit_status, {line, 255} ]
