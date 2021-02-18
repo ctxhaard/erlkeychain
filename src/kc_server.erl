@@ -4,7 +4,7 @@
 
 -behavior(gen_server).
 
--export([start_link/0, load/2, first/0, set_pattern/1, next/0, get/1, put/1, delete/1, new_account/0]).
+-export([start_link/0, load/2, is_loaded/0, first/0, set_pattern/1, next/0, get/1, put/1, delete/1, new_account/0]).
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2]).
 
 -record(server_state, {accounts = [], current = 0, file_path, password, pattern}).
@@ -24,6 +24,9 @@ start_link() ->
 load(FilePath, Pwd) ->
     gen_server:call(?SERVER, {load, FilePath, Pwd}).
 
+is_loaded() ->
+    gen_server:call(?SERVER, loaded).
+
 %% @doc Get the first element of the accounts list, if any
 %% @spec () -> kc_account:account() | notfound
 first() ->
@@ -41,7 +44,7 @@ next() ->
     gen_server:call(?SERVER, next).
 
 %% @doc Get the the element given its id, if any
-%% @spec (AccountId) -> kc_account:account() | notfound
+%% @spec (integer()) -> kc_account:account() | notfound
 get(AccountId) ->
     gen_server:call(?SERVER, {get, AccountId}).
 
@@ -68,6 +71,13 @@ handle_call({load, FilePath, Pwd}, _From, _State) ->
     ?LOG_DEBUG(#{ who => ?MODULE, what => "server loaded accounts", log => trace, level => debug }),
     kc_observable:notify(loaded),
     {reply, ok, #server_state{ accounts=Accounts, file_path = FilePath, password = Pwd }};
+
+handle_call(loaded, _From, State) ->
+    Loaded = if
+                State#server_state.file_path =:= undefined -> false;
+                true -> true
+            end,
+    {reply, Loaded, State };
 
 
 handle_call({setpattern, Pattern}, _From, State = #server_state{ }) ->
