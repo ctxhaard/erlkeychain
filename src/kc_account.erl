@@ -18,7 +18,10 @@ load(FilePath, Pwd) ->
     % openssl enc -d -aes-256-cbc -md sha256 -in <file>
     % passo la password nello standard input di openssl, in modo
     % che la password non sia visibile nella lista dei processi
-    FilePathBin = list_to_binary(FilePath),
+    FilePathBin = if
+        is_list(FilePath) -> list_to_binary(FilePath);
+        true -> FilePath
+    end,
     Port = open_port(
         {spawn, <<"openssl enc -d -aes-256-cbc -md sha256 -in ", FilePathBin/binary>>},
         [ use_stdio, stderr_to_stdout, exit_status, {line, 255} ]
@@ -31,7 +34,10 @@ load(FilePath, Pwd) ->
 %% The current file is moved unchanged to a backup copy, prior to create the new one
 save(FilePath, Pwd, Accounts) ->
     file:copy(FilePath, backup_name(FilePath, calendar:universal_time())),
-    FilePathBin = list_to_binary(FilePath),
+    FilePathBin = if
+        is_list(FilePath) -> list_to_binary(FilePath);
+        true -> FilePath
+    end,
     Port = open_port(
         {spawn, <<"openssl enc -aes-256-cbc -md sha256 -salt -out ", FilePathBin/binary>>},
         [ use_stdio, stderr_to_stdout, exit_status, {line, 255} ]
