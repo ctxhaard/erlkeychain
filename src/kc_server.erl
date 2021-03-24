@@ -45,7 +45,7 @@ next() ->
 
 %% @doc Get the the element given its id, if any
 %% @spec (integer()) -> kc_account:account() | notfound
-get(AccountId) ->
+get(AccountId) when is_number(AccountId) ->
     gen_server:call(?SERVER, {get, AccountId}).
 
 %% @doc Add a new account or replace an existing one
@@ -55,7 +55,7 @@ put(Account={account, _}) ->
 
 %% @doc Delete an account identified by id
 %% @spec (integer()) -> ok | notfound
-delete(AccountId) ->
+delete(AccountId) when is_number(AccountId) ->
     gen_server:call(?SERVER, {delete, AccountId}).
 
 %% @doc Prepare a new empty account
