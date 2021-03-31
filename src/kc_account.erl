@@ -66,7 +66,8 @@ get_id({account, Map}) ->
 max_id(Accounts) ->
     MaxFun = fun({account, M}, Max) ->
         X = maps:get(id, M, 0),
-        if X > Max -> X;
+        if 
+            is_number(X) andalso X > Max -> X;
             true -> Max
         end
     end,

@@ -149,7 +149,7 @@ handle_call({delete, AccountId}, _From, State=#server_state{ accounts=Accounts})
     end;
 
 handle_call(new_account, _From, State) ->
-    {reply, kc_account:new(State=#server_state.accounts), State}.
+    {reply, kc_account:new(State#server_state.accounts), State}.
 
 handle_cast(_Request, State) ->
     {noreply, State}.
